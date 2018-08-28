@@ -1,0 +1,50 @@
+The model is ___ to predict the most likely words once given some context .
+For the past ___ weeks , Tutch has been working very hard .
+She lives with her ___ in the city .
+He has been living in ___ for many years now .
+Investors are concerned about the financial ___ in Japan .
+This morning , he had breakfast at ____ .
+There are many restaurants and shops on ___ street .
+Many of the ___ are in agreement with the new tax policy .
+I ___ you so much !
+The criminal has finally been ___ .
+The ____ situation in the middle east prompted the us government to interfere.
+The summer weather is very ___ .
+Natural language process is a challenging task because the english language is ___ .
+we spent so many ___ in italy last summer .
+he studied computer science at the ___ of california .
+There are ___ books on the table .
+My mother suffered from ___ the last time she went to the hospital .
+The ___ makes the best steak in the city .
+___ are predicting that the housing market could grow by 5 percent next year .
+How many ___ of sleep did you get last night ?
+The world 's ___ buildings are in Dubai .
+The president of the United States left for ___ this morning .
+Many americans think that ___ will become the next us president .
+I need ___ like you by my side .
+This ___ internship has been an inspiring one .
+He feels very ___ after a tough day at work today .
+We went to see our friends perform at the ___ .
+Analysts ___ people are going to vote for Obama at this year 's election .
+The ___ teaches mathematics at the University of Texas .
+Researchers at NTU carried out an ___ on text imputation .
+The winter ___ is extremely cold .
+The reporter ___ that there will be no elections in Thailand next year .
+He lives with his ___ .
+She was really ___ about her next semester courses .
+The more data the model processes , the ___ it makes predictions .
+Parents are on the run since many ___ will start school next month .
+Do you play any musical ___ ?
+Since ___ , the us government has been wary for the influx of immigrants .
+I really have to go because I have to catch a flight to ___ .
+Britain is a country in ___ .
+The world's ___ has more than doubled since the 1970s .
+The hotel is in the ___ of nowhere .
+He will do ___ it takes to become the next major of new york city .
+I have to clean my room soon because my ___ is coming to visit next week !
+The housing market has been on ___ this past decade .
+Many samples are ___ from a bigger corpus that is way too big to process by most desktop computers .
+Researchers ___ that there are new ways to cure cancer .
+___ revealed that the government has been spying on us all !
+She walked so ___ into her boss 's office without any reports she was asked to make .
+We have sadly come to an ___ .
