@@ -22,6 +22,7 @@ class Corpus(object):
         self.train = self.tokenize(os.path.join(path, 'train.txt'))
         self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
         self.test = self.tokenize(os.path.join(path, 'test.txt'))
+        self.context_fill=self.tokenize_and_strip(os.path.join(path, "context-fill.txt"))
 
     def tokenize(self, path):
         """Tokenizes a text file."""
@@ -30,7 +31,7 @@ class Corpus(object):
         with open(path, 'r', encoding="utf8") as f:
             tokens = 0
             for line in f:
-                words = line.split() + ['<eos>']
+                words = ['<sos>'] + line.split() + ['<eos>']
                 tokens += len(words)
                 for word in words:
                     self.dictionary.add_word(word)
@@ -40,9 +41,31 @@ class Corpus(object):
             ids = torch.LongTensor(tokens)
             token = 0
             for line in f:
-                words = line.split() + ['<eos>']
+                words = ['<sos>'] + line.split() + ['<eos>']
                 for word in words:
                     ids[token] = self.dictionary.word2idx[word]
                     token += 1
 
         return ids
+
+    def tokenize_and_strip(self, path):
+        """Tokenizes a text file."""
+        assert os.path.exists(path)
+        # Add words to the dictionary
+        with open(path, 'r', encoding="utf8") as f:
+            for line in f:
+                words = ['<sos>'] + line.split() + ['<eos>']
+                for word in words:
+                    self.dictionary.add_word(word)
+
+        with open(path, 'r', encoding="utf8") as f:
+            sentences=[]
+            for line in f:
+                ids = []
+                words = ['<sos>'] + line.split() + ['<eos>']
+                for word in words:
+                    if (word == "___"):
+                        break
+                    ids.append(self.dictionary.word2idx[word])
+                sentences.append(ids)
+        return sentences
