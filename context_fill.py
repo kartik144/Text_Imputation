@@ -119,7 +119,7 @@ with torch.no_grad():
 
             for i in range(0,output_flat.size()[-1]):
                 #print(output_flat[i].data, end=", ")
-                if len(missing_word)<5:
+                if len(missing_word) < 10:
                     missing_word.append((i,output_flat[i].data))
                     missing_word.sort(key=itemgetter(1))
                 else:

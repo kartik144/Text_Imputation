@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.onnx
 
 import data
-import model
+import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
@@ -73,9 +73,11 @@ corpus = data.Corpus(args.data)
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
 
-def batchify(data, bsz):
+def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
-    nbatch = data.size(0) // bsz
+    print("Data length: {0}".format(data.size(0)))
+    nbatch = (data.size(0) // bsz)
+    data = data[:(nbatch * ((nbatch - 2) // bptt))]
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
@@ -84,21 +86,24 @@ def batchify(data, bsz):
 
 
 eval_batch_size = 10
-train_data = batchify(corpus.train, args.batch_size)
-val_data = batchify(corpus.valid, eval_batch_size)
-test_data = batchify(corpus.test, eval_batch_size)
+print("=== Training data ===")
+train_data = batchify(corpus.train, args.batch_size, args.bptt)
+print("=== Validation data ===")
+val_data = batchify(corpus.valid, eval_batch_size, args.bptt)
+print("=== Testing data ===")
+test_data = batchify(corpus.test, eval_batch_size, args.bptt)
 
 ###############################################################################
 # Build the model
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
-model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+model = model_bidirectional.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
 criterion = nn.CrossEntropyLoss()
 
 ###############################################################################
-# Training code
+# Training code  TODO : Modify for bidirectional
 ###############################################################################
 
 def repackage_hidden(h):
@@ -121,26 +126,37 @@ def repackage_hidden(h):
 
 def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = source[i:i+seq_len]
+    data_left = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].view(-1)
-    return data, target
+    data_right = source[i+2:i+2+seq_len]
+    return data_left, data_right, target
 
 
-def evaluate(data_source):
+def evaluate(data_source):  # TODO : Modify for bidirectional
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0.
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(eval_batch_size)
+    hidden_left = model.init_hidden(eval_batch_size)
+    hidden_right = model.init_hidden(eval_batch_size)
     with torch.no_grad():
-        for i in range(0, data_source.size(0) - 1, args.bptt):
-            data, targets = get_batch(data_source, i)
-            output, hidden = model(data, hidden)
+        for i in range(0, data_source.size(0) - 2, args.bptt):
+            data_left, data_right, targets = get_batch(data_source, i)
+
+            if data_left.size() != data_right.size():
+                print(data_left.size())
+                print(data_right.size())
+            output, hidden_left, hidden_right = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
-            total_loss += len(data) * criterion(output_flat, targets).item()
-            hidden = repackage_hidden(hidden)
+            total_loss += len(data_left) * criterion(output_flat, targets).item()
+            hidden_left = repackage_hidden(hidden_left)
+            hidden_right = repackage_hidden(hidden_right)
     return total_loss / len(data_source)
 
+print(len(train_data))
+print(len(val_data))
+evaluate(train_data)
+evaluate(val_data)
 
 def train():
     # Turn on training mode which enables dropout.
@@ -148,14 +164,20 @@ def train():
     total_loss = 0.
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(args.batch_size)
-    for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        data, targets = get_batch(train_data, i)
+    hidden_left = model.init_hidden(args.batch_size)
+    hidden_right = model.init_hidden(args.batch_size)
+
+    for batch, i in enumerate(range(0, train_data.size(0) - 2, args.bptt)):
+        data_left, data_right, targets = get_batch(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
-        hidden = repackage_hidden(hidden)
+        hidden_left = repackage_hidden(hidden_left)
+        hidden_right = repackage_hidden(hidden_right)
+
         model.zero_grad()
-        output, hidden = model(data, hidden)
+
+        output, hidden_left, hidden_right = model(data_left, data_right, hidden_left, hidden_right)
+
         loss = criterion(output.view(-1, ntokens), targets)
         loss.backward()
 
