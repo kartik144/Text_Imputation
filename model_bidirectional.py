@@ -71,10 +71,30 @@ class RNNModel(nn.Module):
 
         # TODO - element-wise concatenate output_left and output_right and store in output
         output = torch.cat((output_left, output_right),2)
-        #print(output.size()[2])
-        #buff = input()
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden_left, hidden_right
+
+
+    def text_imputation(self, data_left, data_right, hidden_left, hidden_right):
+
+        data_right = data_right.flip(0)
+
+        emb_left = (self.encoder(data_left))
+        emb_right = (self.encoder(data_right))
+
+        output_left, hidden_left = self.rnn_left(emb_left, hidden_left)
+        output_right, hidden_right = self.rnn_right(emb_right, hidden_right)
+
+        output_right = output_right.flip(0)
+
+        output_left = (output_left)[-1]
+        output_right = (output_right)[-1]
+        output = torch.cat((output_left, output_right), 1)
+
+        decoded = self.decoder(output)
+
+        return decoded
+
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())

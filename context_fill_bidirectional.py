@@ -34,12 +34,27 @@ if torch.cuda.is_available():
 device = torch.device("cuda" if args.cuda else "cpu")
 
 with open(args.checkpoint, 'rb') as f:
-    model = torch.load(f).to(device)
+    if args.cuda == False:
+        model = torch.load(f,map_location='cpu')
+    else:
+        model = torch.load(f).to(device)
 model.eval()
 
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
+
+def fix_size_mismatch(input_left, input_right):
+    if (input_left.size(0) == input_right.size(0)):
+        pass
+    elif (input_left.size(0) < input_right.size(0)):
+        diff = torch.zeros((input_right.size(0) - input_left.size(0),1), dtype=torch.int64, device=device)
+        input_left = torch.cat((diff, input_left), 0)
+    elif ((input_left.size(0) > input_right.size(0))):
+        diff = torch.zeros((input_left.size(0) - input_right.size(0),1), dtype=torch.int64, device=device)
+        input_right = torch.cat((input_right, diff), 0)
+
+    return input_left, input_right
 
 with torch.no_grad():
     print("=" * 89)
@@ -48,15 +63,22 @@ with torch.no_grad():
     em=0
     topV=0
     topX=0
-    for index, line in enumerate(corpus.test_left):
+    for index in range(0, len(corpus.test_left)):
         missing_word=[]
-        hidden = model.init_hidden(1)
-        input=torch.LongTensor(line).view(-1,1).to(device)
+        hidden_left = model.init_hidden(1)
+        hidden_right = model.init_hidden(1)
+        input_left=torch.LongTensor(corpus.test_left[index]).view(-1,1).to(device)
+        input_right = torch.LongTensor(corpus.test_right[index]).view(-1, 1).to(device)
+
+        #print("Previous sizes: {0}\t{1}".format(input_left.size(), input_right.size()))
+        #input_left, input_right = fix_size_mismatch(input_left, input_right)
+        #print("Transformed sizes: {0}\t{1}".format(input_left.size(), input_right.size()))
+
         #print(input.size())
-        outputs, hidden = model(input, hidden)
-        #print(outputs.size(),end="\t")
-        output_flat = outputs.view(-1, ntokens)[-1]
-        #print(output_flat.size())
+        outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
+
+        output_flat = outputs[-1]
+        print(output_flat.size())
         #print(output_flat)
 
         for i in range(0,output_flat.size()[-1]):
@@ -104,37 +126,41 @@ with torch.no_grad():
     print("=" * 80)
     print("\n\n\n")
 
-    with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
-        print("=" * 89)
-        print("========================= Predicting words for random sentences =========================")
-        print("=" * 89)
-        for line in corpus.context_left:
-            missing_word=[]
-            hidden = model.init_hidden(1)
-            input=torch.LongTensor(line).view(-1,1).to(device)
-            #print(input.size())
-            outputs, hidden = model(input, hidden)
-            #print(outputs.size(),end="\t")
-            output_flat = outputs.view(-1, ntokens)[-1]
-            #print(output_flat.size())
-            #print(output_flat)
+with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
+    print("=" * 89)
+    print("========================= Predicting words for random sentences =========================")
+    print("=" * 89)
+    for index in range(0, len(corpus.context_left)):
+        missing_word=[]
+        hidden_left = model.init_hidden(1)
+        hidden_right = model.init_hidden(1)
+        input_left = torch.LongTensor(corpus.context_left[index]).view(-1,1).to(device)
+        input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
+        #print(input.size())
+        print(f.readline(), end="")
+        outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
+        #print(outputs.size(),end="\t")
+        output_flat = outputs[-1]
+        #print(output_flat.size())
+        #print(output_flat.size())
+        #print(output_flat)
 
-            for i in range(0,output_flat.size()[-1]):
-                #print(output_flat[i].data, end=", ")
-                if len(missing_word) < 10:
-                    missing_word.append((i,output_flat[i].data))
+        for i in range(0,output_flat.size()[0]):
+            #print(output_flat[i].data, end=", ")
+            if len(missing_word) < 10:
+                missing_word.append((i,output_flat[i].data))
+                missing_word.sort(key=itemgetter(1))
+            else:
+                if output_flat[i].data > missing_word[0][1]:
+                    missing_word[0]=(i,output_flat[i].data)
                     missing_word.sort(key=itemgetter(1))
-                else:
-                    if output_flat[i].data > missing_word[0][1]:
-                        missing_word[0]=(i,output_flat[i].data)
-                        missing_word.sort(key=itemgetter(1))
 
-            #print(missing_word[-5:])
-            print(f.readline(),end="")
-            print("Candidate words: ",end="")
+        #print(missing_word[-5:])
 
-            missing_word.reverse()  # Reverse list to arrange in descending order of scores
+        print("Candidate words: ",end="")
 
-            for idx, _ in missing_word:
-                print(corpus.dictionary.idx2word[idx], end=", ")
-            print("\n")
+        missing_word.reverse()  # Reverse list to arrange in descending order of scores
+
+        for idx, _ in missing_word:
+            print(corpus.dictionary.idx2word[idx], end=", ")
+        print("\n")
