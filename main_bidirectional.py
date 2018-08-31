@@ -75,9 +75,7 @@ corpus = data.Corpus(args.data)
 
 def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
-    print("Data length: {0}".format(data.size(0)))
-    nbatch = (data.size(0) // bsz)
-    data = data[:(nbatch * ((nbatch - 2) // bptt))]
+    nbatch = (((data.size(0) // bsz) - 2) // bptt) * bptt + 2
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
@@ -86,11 +84,8 @@ def batchify(data, bsz, bptt):
 
 
 eval_batch_size = 10
-print("=== Training data ===")
 train_data = batchify(corpus.train, args.batch_size, args.bptt)
-print("=== Validation data ===")
 val_data = batchify(corpus.valid, eval_batch_size, args.bptt)
-print("=== Testing data ===")
 test_data = batchify(corpus.test, eval_batch_size, args.bptt)
 
 ###############################################################################
@@ -142,10 +137,6 @@ def evaluate(data_source):  # TODO : Modify for bidirectional
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 2, args.bptt):
             data_left, data_right, targets = get_batch(data_source, i)
-
-            if data_left.size() != data_right.size():
-                print(data_left.size())
-                print(data_right.size())
             output, hidden_left, hidden_right = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
             total_loss += len(data_left) * criterion(output_flat, targets).item()
@@ -153,10 +144,6 @@ def evaluate(data_source):  # TODO : Modify for bidirectional
             hidden_right = repackage_hidden(hidden_right)
     return total_loss / len(data_source)
 
-print(len(train_data))
-print(len(val_data))
-evaluate(train_data)
-evaluate(val_data)
 
 def train():
     # Turn on training mode which enables dropout.
