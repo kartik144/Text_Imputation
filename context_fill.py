@@ -48,13 +48,15 @@ with torch.no_grad():
     em=0
     topV=0
     topX=0
-    for index, line in enumerate(corpus.test_left):
+    for index, line in enumerate(corpus.test_right):
         missing_word=[]
         input=torch.LongTensor(line).view(-1,1).to(device)
         #print(input.size())
         outputs, hidden = model(input, hidden)
-        #print(outputs.size(),end="\t")
-        output_flat = outputs.view(-1, ntokens)[-1]
+        print(outputs.size(),end="\t")
+
+        output_flat = outputs[0].view(-1, ntokens)
+        print(output_flat.size())
         #print(output_flat.size())
         #print(output_flat)
 
@@ -107,7 +109,7 @@ with torch.no_grad():
         print("=" * 89)
         print("========================= Predicting words for random sentences =========================")
         print("=" * 89)
-        for line in corpus.context_left:
+        for line in corpus.context_right:
             missing_word=[]
             input=torch.LongTensor(line).view(-1,1).to(device)
             #print(input.size())

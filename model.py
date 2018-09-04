@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
@@ -42,8 +43,10 @@ class RNNModel(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
+        input = input.flip(0)
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
+        output = output.flip(0)
         output = self.drop(output)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
