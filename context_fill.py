@@ -32,7 +32,7 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 device = torch.device("cuda" if args.cuda else "cpu")
-
+print(device)
 with open(args.checkpoint, 'rb') as f:
     model = torch.load(f).to(device)
 model.eval()
@@ -40,7 +40,7 @@ model.eval()
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 hidden = model.init_hidden(1)
-
+#print("Tokens : "+str(ntokens))
 with torch.no_grad():
     print("=" * 89)
     print("============================= Predicting words for test set =============================")
@@ -50,13 +50,13 @@ with torch.no_grad():
     topX=0
     for index, line in enumerate(corpus.test_right):
         missing_word=[]
-        input=torch.LongTensor(line).view(-1,1).to(device)
+        input=torch.LongTensor(line).view(-1,1).flip(0).to(device)
         #print(input.size())
         outputs, hidden = model(input, hidden)
-        print(outputs.size(),end="\t")
+        #print(outputs.size(),end="\t")
 
-        output_flat = outputs[0].view(-1, ntokens)
-        print(output_flat.size())
+        output_flat = outputs.view(-1, ntokens)[-1]
+        #print(output_flat.size())
         #print(output_flat.size())
         #print(output_flat)
 
@@ -105,36 +105,36 @@ with torch.no_grad():
     print("=" * 80)
     print("\n\n\n")
 
-    with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
-        print("=" * 89)
-        print("========================= Predicting words for random sentences =========================")
-        print("=" * 89)
-        for line in corpus.context_right:
-            missing_word=[]
-            input=torch.LongTensor(line).view(-1,1).to(device)
-            #print(input.size())
-            outputs, hidden = model(input, hidden)
-            #print(outputs.size(),end="\t")
-            output_flat = outputs.view(-1, ntokens)[-1]
-            #print(output_flat.size())
-            #print(output_flat)
+with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
+    print("=" * 89)
+    print("========================= Predicting words for random sentences =========================")
+    print("=" * 89)
+    for line in corpus.context_right:
+        missing_word=[]
+        input=torch.LongTensor(line).view(-1,1).flip(0).to(device)
+        #print(input.size())
+        outputs, hidden = model(input, hidden)
+        #print(outputs.size(),end="\t")
+        output_flat = outputs.view(-1, ntokens)[-1]
+        #print(output_flat.size())
+        #print(output_flat)
 
-            for i in range(0,output_flat.size()[-1]):
-                #print(output_flat[i].data, end=", ")
-                if len(missing_word)<5:
-                    missing_word.append((i,output_flat[i].data))
+        for i in range(0,output_flat.size()[-1]):
+            #print(output_flat[i].data, end=", ")
+            if len(missing_word)<10:
+                missing_word.append((i,output_flat[i].data))
+                missing_word.sort(key=itemgetter(1))
+            else:
+                if output_flat[i].data > missing_word[0][1]:
+                    missing_word[0]=(i,output_flat[i].data)
                     missing_word.sort(key=itemgetter(1))
-                else:
-                    if output_flat[i].data > missing_word[0][1]:
-                        missing_word[0]=(i,output_flat[i].data)
-                        missing_word.sort(key=itemgetter(1))
 
-            #print(missing_word[-5:])
-            print(f.readline(),end="")
-            print("Candidate words: ",end="")
+        #print(missing_word[-5:])
+        print(f.readline(),end="")
+        print("Candidate words: ",end="")
 
-            missing_word.reverse()  # Reverse list to arrange in descending order of scores
+        missing_word.reverse()  # Reverse list to arrange in descending order of scores
 
-            for idx, _ in missing_word:
-                print(corpus.dictionary.idx2word[idx], end=", ")
-            print("\n")
+        for idx, _ in missing_word:
+            print(corpus.dictionary.idx2word[idx], end=", ")
+        print("\n")
