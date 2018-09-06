@@ -2,7 +2,6 @@ import argparse
 from operator import itemgetter
 import torch
 import os
-from torch.autograd import Variable
 
 import context_data
 
@@ -11,18 +10,14 @@ parser = argparse.ArgumentParser(description='PyTorch Context-filling Language M
 # Model parameters.
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
-parser.add_argument('--checkpoint', type=str, default='./model.pt',
+parser.add_argument('--model_left', type=str, default='./model.pt',
                     help='model checkpoint to use')
-parser.add_argument('--outf', type=str, default='generated.txt',
-                    help='output file')
+parser.add_argument('--model_right', type=str, default='./model.pt',
+                    help='model checkpoint to use')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--temperature', type=float, default=1.0,
-                    help='temperature - higher will increase diversity')
-parser.add_argument('--log-interval', type=int, default=100,
-                    help='reporting interval')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -32,14 +27,19 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 device = torch.device("cuda" if args.cuda else "cpu")
-print(device)
-with open(args.checkpoint, 'rb') as f:
-    model = torch.load(f).to(device)
-model.eval()
+
+with open(args.model_left, 'rb') as f:
+    model_left = torch.load(f).to(device)
+model_left.eval()
+
+with open(args.model_right, 'rb') as f:
+    model_right = torch.load(f).to(device)
+model_right.eval()
 
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
-hidden = model.init_hidden(1)
+hidden_left = model_left.init_hidden(1)
+hidden_right = model_right.init_hidden(1)
 #print("Tokens : "+str(ntokens))
 with torch.no_grad():
     print("=" * 89)
@@ -50,12 +50,16 @@ with torch.no_grad():
     topX=0
     for index, line in enumerate(corpus.test_right):
         missing_word=[]
-        input=torch.LongTensor(line).view(-1,1).flip(0).to(device)
-        #print(input.size())
-        outputs, hidden = model(input, hidden)
-        #print(outputs.size(),end="\t")
+        input_left = torch.LongTensor(corpus.test_left[index]).view(-1,1).to(device)
+        input_right = torch.LongTensor(line).view(-1,1).flip(0).to(device)
 
-        output_flat = outputs.view(-1, ntokens)[-1]
+
+        outputs_left, hidden_left = model_left(input_left, hidden_left)
+        outputs_right, hidden_right = model_left(input_right, hidden_right)
+
+        output_flat_left = outputs_left.view(-1, ntokens)[-1]
+        output_flat_right = outputs_right.view(-1, ntokens)[-1]
+        output_flat = output_flat_left + output_flat_right
         #print(output_flat.size())
         #print(output_flat.size())
         #print(output_flat)
