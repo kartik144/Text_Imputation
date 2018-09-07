@@ -54,7 +54,7 @@ class RNNModel(nn.Module):
 
     def forward(self, data_left, data_right, hidden_left, hidden_right):
 
-        # TODO - reverse data_right along time (bptt) axis
+
         data_right = data_right.flip(0)
 
         emb_left = self.drop(self.encoder(data_left))
@@ -63,13 +63,13 @@ class RNNModel(nn.Module):
         output_left , hidden_left = self.rnn_left(emb_left, hidden_left)
         output_right, hidden_right = self.rnn_right(emb_right, hidden_right)
 
-        # TODO - reverse output_right along time (bptt) axis
+
         output_right = output_right.flip(0)
 
         output_left = self.drop(output_left)
         output_right = self.drop(output_right)
 
-        # TODO - element-wise concatenate output_left and output_right and store in output
+
         output = torch.cat((output_left, output_right),2)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden_left, hidden_right

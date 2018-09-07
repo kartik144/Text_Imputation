@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.onnx
 
-import data
+import context_data
 import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -59,7 +59,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+corpus = context_data.Corpus(args.data)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -98,7 +98,7 @@ model = model_bidirectional.RNNModel(args.model, ntokens, args.emsize, args.nhid
 criterion = nn.CrossEntropyLoss()
 
 ###############################################################################
-# Training code  TODO : Modify for bidirectional
+# Training code
 ###############################################################################
 
 def repackage_hidden(h):
@@ -127,7 +127,7 @@ def get_batch(source, i):
     return data_left, data_right, target
 
 
-def evaluate(data_source):  # TODO : Modify for bidirectional
+def evaluate(data_source):  #
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0.
