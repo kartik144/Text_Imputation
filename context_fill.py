@@ -113,15 +113,23 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
     print("=" * 89)
     print("========================= Predicting words for random sentences =========================")
     print("=" * 89)
-    for line in corpus.context_right:
+    for index, line in enumerate(corpus.context_right):
         missing_word=[]
-        input=torch.LongTensor(line).view(-1,1).flip(0).to(device)
+        input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
+        input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
+
+        outputs_left, hidden_left = model_left(input_left, hidden_left)
+        outputs_right, hidden_right = model_left(input_right, hidden_right)
+
+        output_flat_left = outputs_left.view(-1, ntokens)[-1]
+        output_flat_right = outputs_right.view(-1, ntokens)[-1]
+        output_flat = output_flat_left + output_flat_right
         #print(input.size())
-        outputs, hidden = model(input, hidden)
-        #print(outputs.size(),end="\t")
-        output_flat = outputs.view(-1, ntokens)[-1]
-        #print(output_flat.size())
-        #print(output_flat)
+        # outputs, hidden = model(input, hidden)
+        # #print(outputs.size(),end="\t")
+        # output_flat = outputs.view(-1, ntokens)[-1]
+        # #print(output_flat.size())
+        # #print(output_flat)
 
         for i in range(0,output_flat.size()[-1]):
             #print(output_flat[i].data, end=", ")
