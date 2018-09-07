@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.onnx
 
-import data
+import context_data
 import model
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -59,7 +59,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+corpus = context_data.Corpus(args.data)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -121,8 +121,8 @@ def repackage_hidden(h):
 
 def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = source[i:i+seq_len]
-    target = source[i+1:i+1+seq_len].view(-1)
+    target = source[i:i + seq_len].flip(0).view(-1)
+    data = source[i+1:i+seq_len+1].flip(0)
     return data, target
 
 
