@@ -36,6 +36,8 @@ with open(args.model_right, 'rb') as f:
     model_right = torch.load(f).to(device)
 model_right.eval()
 
+softmax = torch.nn.Softmax()
+
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 hidden_left = model_left.init_hidden(1)
@@ -57,8 +59,8 @@ with torch.no_grad():
         outputs_left, hidden_left = model_left(input_left, hidden_left)
         outputs_right, hidden_right = model_left(input_right, hidden_right)
 
-        output_flat_left = outputs_left.view(-1, ntokens)[-1]
-        output_flat_right = outputs_right.view(-1, ntokens)[-1]
+        output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
+        output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
         output_flat = output_flat_left + output_flat_right
         #print(output_flat.size())
         #print(output_flat.size())
@@ -121,8 +123,8 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
         outputs_left, hidden_left = model_left(input_left, hidden_left)
         outputs_right, hidden_right = model_left(input_right, hidden_right)
 
-        output_flat_left = outputs_left.view(-1, ntokens)[-1]
-        output_flat_right = outputs_right.view(-1, ntokens)[-1]
+        output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
+        output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
         output_flat = output_flat_left + output_flat_right
         #print(input.size())
         # outputs, hidden = model(input, hidden)
