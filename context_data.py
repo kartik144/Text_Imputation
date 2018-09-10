@@ -20,9 +20,9 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
-        self.train = self.add_to_dict(os.path.join(path, 'train.txt'))
-        self.valid = self.add_to_dict(os.path.join(path, 'valid.txt'))
-        self.test = self.add_to_dict(os.path.join(path, 'test.txt'))
+        self.train = self.tokenize(os.path.join(path, 'train.txt'))
+        self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
+        self.test = self.tokenize(os.path.join(path, 'test.txt'))
 
         self.test_left, self.test_target, self.test_right = self.tokenize_test(os.path.join(path, 'test_context_fill.txt'))
         self.context_left, self.context_right = self.tokenize_context(os.path.join(path, "context-fill.txt"))
@@ -40,7 +40,7 @@ class Corpus(object):
                 for word in words:
                     self.dictionary.add_word(word)
 
-        return tokens
+            return tokens
 
     def tokenize(self, path):
         """Tokenizes a text file."""
@@ -56,7 +56,7 @@ class Corpus(object):
                     ids[token] = self.dictionary.word2idx[word]
                     token += 1
 
-        return ids
+            return ids
 
     def tokenize_test(self, path):
         """Tokenizes a text file."""
@@ -82,10 +82,10 @@ class Corpus(object):
                         ids_right.append(self.dictionary.word2idx[word])
 
                 test_left.append(ids_left)
-                test_target.append(self.dictionary.word2idx[f.readline()])
+                test_target.append(self.dictionary.word2idx[f.readline().split()[0]])
                 test_right.append(ids_right)
 
-        return test_left, test_target, test_right
+            return test_left, test_target, test_right
 
 
     def tokenize_context(self, path):
@@ -112,4 +112,4 @@ class Corpus(object):
                 context_left.append(ids_left)
                 context_right.append(ids_right)
 
-        return context_left, context_right
+            return context_left, context_right

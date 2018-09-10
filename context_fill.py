@@ -5,6 +5,26 @@ import os
 
 import context_data
 
+
+class Counter():
+    def __init__(self):
+        self.em = 0
+        self.topV = 0
+        self.topX = 0
+
+    def update(self, missing_word):
+        predicted_idx = [w[0] for w in missing_word]
+        if predicted_idx[0] == corpus.test_target[index]:
+            self.em += 1
+
+        if corpus.test_target[index] in predicted_idx[:5]:
+            self.topV += 1
+
+        if corpus.test_target[index] in predicted_idx[:10]:
+            self.topX += 1
+
+
+
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
@@ -42,19 +62,56 @@ corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 hidden_left = model_left.init_hidden(1)
 hidden_right = model_right.init_hidden(1)
-#print("Tokens : "+str(ntokens))
+
+def get_missing_word(input):
+    missing_word = []
+    for i in range(0, input.size()[-1]):
+        # print(output_flat[i].data, end=", ")
+        if len(missing_word) < 10:
+            missing_word.append((i, input[i].data))
+            missing_word.sort(key=itemgetter(1))
+        else:
+            if input[i].data > missing_word[0][1]:
+                missing_word[0] = (i, input[i].data)
+                missing_word.sort(key=itemgetter(1))
+
+    return missing_word
+
+def print_sentence_test(corpus, index):
+    for w in corpus.test_left[index]:
+        print(corpus.dictionary.idx2word[w], end=" ")
+    print("___", end=" ")
+    for w in corpus.test_right[index]:
+        print(corpus.dictionary.idx2word[w], end=" ")
+
+    print("\nTarget Word: {0}".format(corpus.dictionary.idx2word[corpus.test_target[index]]))
+
+def print_predictions(corpus, missing_word):
+    missing_word.reverse()  # Reverse list to arrange in descending order of scores
+
+    for idx, _ in missing_word:
+        print(corpus.dictionary.idx2word[idx], end=", ")
+    print()
+
+def print_results(label,counter, corpus):
+    print(label)
+    print("Exact match: {0}/{1} ({2:.2f}%)".format(counter.em, len(corpus.test_target), 100*(counter.em/len(corpus.test_target))))
+    print("Target word in top 5 predicted words: {0}/{1} ({2:.2f}%)".format(counter.topV, len(corpus.test_target), 100*(counter.topV / len(corpus.test_target))))
+    print("Target word in top 10 predicted words: {0}/{1} ({2:.2f}%)".format(counter.topX, len(corpus.test_target), 100*(counter.topX / len(corpus.test_target))))
+
 with torch.no_grad():
     print("=" * 89)
     print("============================= Predicting words for test set =============================")
     print("=" * 89)
-    em=0
-    topV=0
-    topX=0
+
+    bi_counter = Counter()
+    left_counter = Counter()
+    right_counter = Counter()
+
     for index, line in enumerate(corpus.test_right):
-        missing_word=[]
+
         input_left = torch.LongTensor(corpus.test_left[index]).view(-1,1).to(device)
         input_right = torch.LongTensor(line).view(-1,1).flip(0).to(device)
-
 
         outputs_left, hidden_left = model_left(input_left, hidden_left)
         outputs_right, hidden_right = model_left(input_right, hidden_right)
@@ -62,52 +119,39 @@ with torch.no_grad():
         output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
         output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
         output_flat = output_flat_left + output_flat_right
-        #print(output_flat.size())
-        #print(output_flat.size())
-        #print(output_flat)
 
-        for i in range(0,output_flat.size()[-1]):
-            #print(output_flat[i].data, end=", ")
-            if len(missing_word)<10:
-                missing_word.append((i,output_flat[i].data))
-                missing_word.sort(key=itemgetter(1))
-            else:
-                if output_flat[i].data > missing_word[0][1]:
-                    missing_word[0]=(i,output_flat[i].data)
-                    missing_word.sort(key=itemgetter(1))
+        missing_word = get_missing_word(output_flat)
+        missing_word_left = get_missing_word(output_flat_left)
+        missing_word_right = get_missing_word(output_flat_right)
 
-        #print(missing_word[-5:])
+        print_sentence_test(corpus, index)
 
-        for w in corpus.test_left[index]:
-            print(corpus.dictionary.idx2word[w],end=" ")
-        print("___",end=" ")
-        for w in corpus.test_right[index]:
-            print(corpus.dictionary.idx2word[w],end=" ")
+        print("Candidate words (bidirectional):\t\t", end=" ")
+        print_predictions(corpus, missing_word)
+        bi_counter.update(missing_word)
 
-        print("\nTarget Word: {0}\nCandidate words: ".format(corpus.dictionary.idx2word[corpus.test_target[index]]), end= " ")
+        print("Candidate words (unidirectional-left):\t", end=" ")
+        print_predictions(corpus, missing_word_left)
+        left_counter.update(missing_word_left)
 
-        missing_word.reverse() # Reverse list to arrange in descending order of scores
+        print("Candidate words (unidirectional-right):\t", end=" ")
+        print_predictions(corpus, missing_word_right)
+        right_counter.update(missing_word_right)
 
-        for idx, _ in missing_word:
-            print(corpus.dictionary.idx2word[idx], end=", ")
-        print("\n")
-
-        predicted_idx = [w[0] for w in missing_word]
-        if predicted_idx[0] == corpus.test_target[index]:
-            em+=1
-
-        if corpus.test_target[index] in predicted_idx[:5]:
-            topV+=1
-
-        if corpus.test_target[index] in predicted_idx[:10]:
-            topX += 1
+        print()
 
     print("=" * 80)
     print("=============================== ACCURACY RESULTS ===============================")
     print("=" * 80)
-    print("Exact match: {0}/{1} ({2:.2f}%)".format(em, len(corpus.test_target), 100*(em/len(corpus.test_target))))
-    print("Target word in top 5 predicted words: {0}/{1} ({2:.2f}%)".format(topV, len(corpus.test_target), 100*(topV / len(corpus.test_target))))
-    print("Target word in top 10 predicted words: {0}/{1} ({2:.2f}%)".format(topX, len(corpus.test_target), 100*(topX / len(corpus.test_target))))
+    print_results("BIDIRECTIONAL", bi_counter, corpus)
+    print("=" * 80)
+
+    print("=" * 80)
+    print_results("UNIDIRECTIONAL - LEFT", left_counter, corpus)
+    print("=" * 80)
+
+    print("=" * 80)
+    print_results("UNIIDIRECTIONAL - RIGHT", right_counter, corpus)
     print("=" * 80)
     print("\n\n\n")
 
@@ -126,29 +170,20 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
         output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
         output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
         output_flat = output_flat_left + output_flat_right
-        #print(input.size())
-        # outputs, hidden = model(input, hidden)
-        # #print(outputs.size(),end="\t")
-        # output_flat = outputs.view(-1, ntokens)[-1]
-        # #print(output_flat.size())
-        # #print(output_flat)
 
-        for i in range(0,output_flat.size()[-1]):
-            #print(output_flat[i].data, end=", ")
-            if len(missing_word)<10:
-                missing_word.append((i,output_flat[i].data))
-                missing_word.sort(key=itemgetter(1))
-            else:
-                if output_flat[i].data > missing_word[0][1]:
-                    missing_word[0]=(i,output_flat[i].data)
-                    missing_word.sort(key=itemgetter(1))
+        missing_word = get_missing_word(output_flat)
+        missing_word_left = get_missing_word(output_flat_left)
+        missing_word_right = get_missing_word(output_flat_right)
 
-        #print(missing_word[-5:])
         print(f.readline(),end="")
-        print("Candidate words: ",end="")
 
-        missing_word.reverse()  # Reverse list to arrange in descending order of scores
+        print("Candidate words (bidirectional):\t\t", end=" ")
+        print_predictions(corpus, missing_word)
 
-        for idx, _ in missing_word:
-            print(corpus.dictionary.idx2word[idx], end=", ")
-        print("\n")
+        print("Candidate words (unidirectional-left):\t", end=" ")
+        print_predictions(corpus, missing_word_left)
+
+        print("Candidate words (unidirectional-right):\t", end=" ")
+        print_predictions(corpus, missing_word_right)
+
+        print()
