@@ -24,7 +24,7 @@ class Corpus(object):
         self.valid = self.add_to_dict(os.path.join(path, 'valid.txt'))
         self.test = self.add_to_dict(os.path.join(path, 'test.txt'))
 
-        self.test_left, self.test_target, self.test_right = self.tokenize_test(os.path.join(path, 'test.txt'))
+        self.test_left, self.test_target, self.test_right = self.tokenize_test(os.path.join(path, 'test_context_fill.txt'))
         self.context_left, self.context_right = self.tokenize_context(os.path.join(path, "context-fill.txt"))
 
 
@@ -68,15 +68,22 @@ class Corpus(object):
             test_target=[]
             test_right=[]
             for line in f:
-                ids = []
+                ids_left = []
+                ids_right = []
                 words = ['<sos>'] + line.split() + ['<eos>']
+                flag = False
                 for word in words:
-                    ids.append(self.dictionary.word2idx[word])
-                rand=random.randint(1,len(ids)-2)
+                    if word == "___":
+                        flag = True
+                        continue
+                    if flag == False:
+                        ids_left.append(self.dictionary.word2idx[word])
+                    else:
+                        ids_right.append(self.dictionary.word2idx[word])
 
-                test_left.append(ids[:rand])
-                test_target.append(ids[rand])
-                test_right.append(ids[rand+1:])
+                test_left.append(ids_left)
+                test_target.append(self.dictionary.word2idx[f.readline()])
+                test_right.append(ids_right)
 
         return test_left, test_target, test_right
 
