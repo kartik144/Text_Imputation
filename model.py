@@ -25,6 +25,7 @@ class RNNModel(nn.Module):
         # and
         # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
         # https://arxiv.org/abs/1611.01462
+
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
@@ -43,20 +44,10 @@ class RNNModel(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
-        #input = input.flip(0)
-        #print(input)
         emb = self.drop(self.encoder(input))
-        #emb = emb.flip(0)
-        #print(emb)
         output, hidden = self.rnn(emb, hidden)
-        #print(output)
-        #output = output.flip(0)
-        #print(output)
         output = self.drop(output)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        #print(decoded)
-        #print(decoded.view(output.size(0), output.size(1), decoded.size(1)))
-        #print(decoded.view(output.size(0), output.size(1), decoded.size(1)).size())
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
 
     def init_hidden(self, bsz):
