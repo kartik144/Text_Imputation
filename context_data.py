@@ -20,16 +20,17 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
-        self.train = self.tokenize(os.path.join(path, 'train.txt'))
-        self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
-        self.test = self.tokenize(os.path.join(path, 'test.txt'))
+        self.train = self.add_to_dict(os.path.join(path, 'train.txt'))
+        self.valid = self.add_to_dict(os.path.join(path, 'valid.txt'))
+        self.test = self.add_to_dict(os.path.join(path, 'test.txt'))
 
-        self.test_left, self.test_target, self.test_right = self.tokenize_test(os.path.join(path, 'test.txt'))
-        self.context_left, self.context_right=self.tokenize_context(os.path.join(path, "context-fill.txt"))
+        self.test_left, self.test_target, self.test_right = self.tokenize_test(os.path.join(path, 'test_context_fill.txt'))
+        self.context_left, self.context_right = self.tokenize_context(os.path.join(path, "context-fill.txt"))
 
-    def tokenize(self, path):
-        """Tokenizes a text file."""
+
+    def add_to_dict(self, path):
         assert os.path.exists(path)
+
         # Add words to the dictionary
         with open(path, 'r', encoding="utf8") as f:
             tokens = 0
@@ -38,6 +39,12 @@ class Corpus(object):
                 tokens += len(words)
                 for word in words:
                     self.dictionary.add_word(word)
+
+        return tokens
+
+    def tokenize(self, path):
+        """Tokenizes a text file."""
+        tokens = self.add_to_dict(path)
 
         # Tokenize file content
         with open(path, 'r', encoding="utf8") as f:
@@ -61,28 +68,29 @@ class Corpus(object):
             test_target=[]
             test_right=[]
             for line in f:
-                ids = []
+                ids_left = []
+                ids_right = []
                 words = ['<sos>'] + line.split() + ['<eos>']
+                flag = False
                 for word in words:
-                    ids.append(self.dictionary.word2idx[word])
-                rand=random.randint(1,len(ids)-2)
+                    if word == "___":
+                        flag = True
+                        continue
+                    if flag == False:
+                        ids_left.append(self.dictionary.word2idx[word])
+                    else:
+                        ids_right.append(self.dictionary.word2idx[word])
 
-                test_left.append(ids[:rand])
-                test_target.append(ids[rand])
-                test_right.append(ids[rand+1:])
+                test_left.append(ids_left)
+                test_target.append(self.dictionary.word2idx[f.readline()])
+                test_right.append(ids_right)
 
         return test_left, test_target, test_right
 
 
     def tokenize_context(self, path):
         """Tokenizes a text file."""
-        assert os.path.exists(path)
-        # Add words to the dictionary
-        with open(path, 'r', encoding="utf8") as f:
-            for line in f:
-                words = ['<sos>'] + line.split() + ['<eos>']
-                for word in words:
-                    self.dictionary.add_word(word)
+        self.add_to_dict(path)
 
         with open(path, 'r', encoding="utf8") as f:
             context_left=[]
