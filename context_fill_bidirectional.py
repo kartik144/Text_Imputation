@@ -13,16 +13,10 @@ parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
 parser.add_argument('--checkpoint', type=str, default='./model.pt',
                     help='model checkpoint to use')
-parser.add_argument('--outf', type=str, default='generated.txt',
-                    help='output file')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--temperature', type=float, default=1.0,
-                    help='temperature - higher will increase diversity')
-parser.add_argument('--log-interval', type=int, default=100,
-                    help='reporting interval')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -42,19 +36,6 @@ model.eval()
 
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
-
-
-def fix_size_mismatch(input_left, input_right):
-    if (input_left.size(0) == input_right.size(0)):
-        pass
-    elif (input_left.size(0) < input_right.size(0)):
-        diff = torch.zeros((input_right.size(0) - input_left.size(0),1), dtype=torch.int64, device=device)
-        input_left = torch.cat((diff, input_left), 0)
-    elif ((input_left.size(0) > input_right.size(0))):
-        diff = torch.zeros((input_left.size(0) - input_right.size(0),1), dtype=torch.int64, device=device)
-        input_right = torch.cat((input_right, diff), 0)
-
-    return input_left, input_right
 
 with torch.no_grad():
     print("=" * 89)

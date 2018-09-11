@@ -39,7 +39,7 @@ class Corpus(object):
                 for word in words:
                     self.dictionary.add_word(word)
 
-        return tokens
+            return tokens
 
     def tokenize(self, path):
         """Tokenizes a text file."""
@@ -55,7 +55,7 @@ class Corpus(object):
                     ids[token] = self.dictionary.word2idx[word]
                     token += 1
 
-        return ids
+            return ids
 
     def tokenize_test(self, path):
         """Tokenizes a text file."""
@@ -84,7 +84,7 @@ class Corpus(object):
                 test_target.append(self.dictionary.word2idx[f.readline().split()[0]])
                 test_right.append(ids_right)
 
-        return test_left, test_target, test_right
+            return test_left, test_target, test_right
 
 
     def tokenize_context(self, path):
@@ -111,4 +111,4 @@ class Corpus(object):
                 context_left.append(ids_left)
                 context_right.append(ids_right)
 
-        return context_left, context_right
+            return context_left, context_right
