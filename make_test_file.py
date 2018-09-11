@@ -12,6 +12,7 @@ args = parser.parse_args()
 stopWords = set(stopwords.words('english'))
 
 saveFile = open(os.path.join(args.data, "test_context_fill.txt"), "w")
+random.seed(1111)
 
 with open(os.path.join(args.data, "test.txt")) as f:
     for line in f:

@@ -70,19 +70,11 @@ with torch.no_grad():
         input_left=torch.LongTensor(corpus.test_left[index]).view(-1,1).to(device)
         input_right = torch.LongTensor(corpus.test_right[index]).view(-1, 1).to(device)
 
-        #print("Previous sizes: {0}\t{1}".format(input_left.size(), input_right.size()))
-        #input_left, input_right = fix_size_mismatch(input_left, input_right)
-        #print("Transformed sizes: {0}\t{1}".format(input_left.size(), input_right.size()))
-
-        #print(input.size())
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
 
         output_flat = outputs[-1]
-        print(output_flat.size())
-        #print(output_flat)
 
         for i in range(0,output_flat.size()[-1]):
-            #print(output_flat[i].data, end=", ")
             if len(missing_word)<10:
                 missing_word.append((i,output_flat[i].data))
                 missing_word.sort(key=itemgetter(1))
@@ -90,8 +82,6 @@ with torch.no_grad():
                 if output_flat[i].data > missing_word[0][1]:
                     missing_word[0]=(i,output_flat[i].data)
                     missing_word.sort(key=itemgetter(1))
-
-        #print(missing_word[-5:])
 
         for w in corpus.test_left[index]:
             print(corpus.dictionary.idx2word[w],end=" ")
@@ -136,17 +126,12 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
         hidden_right = model.init_hidden(1)
         input_left = torch.LongTensor(corpus.context_left[index]).view(-1,1).to(device)
         input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
-        #print(input.size())
+
         print(f.readline(), end="")
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
-        #print(outputs.size(),end="\t")
         output_flat = outputs[-1]
-        #print(output_flat.size())
-        #print(output_flat.size())
-        #print(output_flat)
 
         for i in range(0,output_flat.size()[0]):
-            #print(output_flat[i].data, end=", ")
             if len(missing_word) < 10:
                 missing_word.append((i,output_flat[i].data))
                 missing_word.sort(key=itemgetter(1))
@@ -154,8 +139,6 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
                 if output_flat[i].data > missing_word[0][1]:
                     missing_word[0]=(i,output_flat[i].data)
                     missing_word.sort(key=itemgetter(1))
-
-        #print(missing_word[-5:])
 
         print("Candidate words: ",end="")
 
