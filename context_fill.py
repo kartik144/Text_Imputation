@@ -1,9 +1,8 @@
-
 import argparse
 from operator import itemgetter
 import torch
 import os
-
+from nltk.corpus import stopwords
 import context_data
 
 
@@ -25,7 +24,7 @@ class Counter():
             self.topX += 1
 
 
-
+stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>'])
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
@@ -67,8 +66,9 @@ hidden_right = model_right.init_hidden(1)
 def get_missing_word(input):
     missing_word = []
     for i in range(0, input.size()[-1]):
-        # print(output_flat[i].data, end=", ")
-        if len(missing_word) < 10:
+        if corpus.dictionary.idx2word[i] in stopWords:
+            continue
+        elif len(missing_word) < 10:
             missing_word.append((i, input[i].data))
             missing_word.sort(key=itemgetter(1))
         else:
