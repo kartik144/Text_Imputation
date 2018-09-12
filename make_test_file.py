@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(description='PyTorch Context-filling Language M
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
 args = parser.parse_args()
-stopWords = set(stopwords.words('english'))
+stopWords = set(list(stopwords.words('english')) + [".",","])
 
 saveFile = open(os.path.join(args.data, "test_context_fill.txt"), "w")
 random.seed(1111)

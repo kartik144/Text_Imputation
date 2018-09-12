@@ -3,12 +3,12 @@ For the past ___ weeks , Tutch has been working very hard .
 She lives with her ___ in the city .
 He has been living in ___ for many years now .
 Investors are concerned about the financial ___ in Japan .
-This morning , he had breakfast at ____ .
+This morning , he had breakfast at ___ .
 There are many restaurants and shops on ___ street .
 Many of the ___ are in agreement with the new tax policy .
 I ___ you so much !
 The criminal has finally been ___ .
-The ____ situation in the middle east prompted the us government to interfere.
+The ___ situation in the middle east prompted the us government to interfere.
 The summer weather is very ___ .
 Natural language process is a challenging task because the english language is ___ .
 we spent so many ___ in italy last summer .
@@ -47,4 +47,4 @@ Many samples are ___ from a bigger corpus that is way too big to process by most
 Researchers ___ that there are new ways to cure cancer .
 ___ revealed that the government has been spying on us all !
 She walked so ___ into her boss 's office without any reports she was asked to make .
-We have sadly come to an ___ .
+We have sadly come to an ___ ____.
