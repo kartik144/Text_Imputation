@@ -161,7 +161,7 @@ with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
     print("========================= Predicting words for random sentences =========================")
     print("=" * 89)
     for index, line in enumerate(corpus.context_right):
-        missing_word=[]
+
         input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
         input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
 

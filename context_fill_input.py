@@ -5,13 +5,72 @@ import os
 from nltk.corpus import stopwords
 import context_data
 
+def get_dataset(filename, corpus):
+    with open(filename, "r") as f:
+        context_left = []
+        context_right = []
+
+        for line in f:
+            words = line.split()
+            for index, w in enumerate(words):
+                if w not in corpus.dictionary.word2idx.keys():
+                    words[index] = '<unk>'
+                    print(w)
+
+            ids_left = []
+            ids_right = []
+            flag = False
+            for word in words:
+                if word == "___":
+                    flag = True
+                    continue
+                if flag == False:
+                    ids_left.append(corpus.dictionary.word2idx[word])
+                else:
+                    ids_right.append(corpus.dictionary.word2idx[word])
+
+            context_left.append(ids_left)
+            context_right.append(ids_right)
+
+        return context_left, context_right
+
+
+def get_missing_word(input):
+    missing_word = []
+    for i in range(0, input.size()[-1]):
+        if corpus.dictionary.idx2word[i] in stopWords:
+            continue
+        elif len(missing_word) < 10:
+            missing_word.append((i, input[i].data))
+            missing_word.sort(key=itemgetter(1))
+        else:
+            if input[i].data > missing_word[0][1]:
+                missing_word[0] = (i, input[i].data)
+                missing_word.sort(key=itemgetter(1))
+
+    return missing_word
+
+
+def print_predictions(corpus, missing_word):
+    missing_word.reverse()  # Reverse list to arrange in descending order of scores
+
+    for idx, _ in missing_word:
+        print(corpus.dictionary.idx2word[idx], end=", ")
+    print()
+
 stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>'])
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
+parser.add_argument('--file', type=str, default='./context-fill-2.txt',
+                    help='location of the file to fill in ')
 parser.add_argument('--checkpoint', type=str, default='./model.pt',
+                    help='model checkpoint to use')
+parser.add_argument('--model_left', type=str, default='./model.pt',
+                    help='model checkpoint to use')
+parser.add_argument('--model_right', type=str, default='./model.pt',
                     help='model checkpoint to use')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
@@ -47,6 +106,40 @@ softmax = torch.nn.Softmax()
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
+context_left, context_right = get_dataset("context-fill-2.txt", corpus)
 
 hidden_left = model_left.init_hidden(1)
 hidden_right = model_right.init_hidden(1)
+
+################# TODO ########################
+###### Modify to predict from all models#######
+###############################################
+
+with open(os.path.join(args.file), "r") as f:
+    for index, line in enumerate(context_right):
+        input_left = torch.LongTensor(context_left[index]).view(-1, 1).to(device)
+        input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
+
+        outputs_left, hidden_left = model_left(input_left, hidden_left)
+        outputs_right, hidden_right = model_left(input_right, hidden_right)
+
+        output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
+        output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
+        output_flat = output_flat_left + output_flat_right
+
+        missing_word = get_missing_word(output_flat)
+        missing_word_left = get_missing_word(output_flat_left)
+        missing_word_right = get_missing_word(output_flat_right)
+
+        print(f.readline(), end="")
+
+        print("Candidate words (bidirectional):\t\t", end=" ")
+        print_predictions(corpus, missing_word)
+
+        print("Candidate words (unidirectional-left):\t", end=" ")
+        print_predictions(corpus, missing_word_left)
+
+        print("Candidate words (unidirectional-right):\t", end=" ")
+        print_predictions(corpus, missing_word_right)
+
+        print()
