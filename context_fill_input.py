@@ -58,7 +58,7 @@ def print_predictions(corpus, missing_word):
         print(corpus.dictionary.idx2word[idx], end=", ")
     print()
 
-stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>'])
+stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', '.', ':',"\"", "...", "?", "!", ".."])
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
@@ -108,15 +108,15 @@ ntokens = len(corpus.dictionary)
 
 context_left, context_right = get_dataset("context-fill-2.txt", corpus)
 
-hidden_left = model_left.init_hidden(1)
-hidden_right = model_right.init_hidden(1)
-
 ################# TODO ########################
 ###### Modify to predict from all models#######
 ###############################################
 
 with open(os.path.join(args.file), "r") as f:
     for index, line in enumerate(context_right):
+        hidden_left = model_left.init_hidden(1)
+        hidden_right = model_right.init_hidden(1)
+
         input_left = torch.LongTensor(context_left[index]).view(-1, 1).to(device)
         input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
 
@@ -141,5 +141,18 @@ with open(os.path.join(args.file), "r") as f:
 
         print("Candidate words (unidirectional-right):\t", end=" ")
         print_predictions(corpus, missing_word_right)
+
+        hidden_left = model.init_hidden(1)
+        hidden_right = model.init_hidden(1)
+        input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
+        input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
+
+        outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
+        output_flat = softmax(outputs[-1])
+
+        missing_word = get_missing_word(output_flat)
+
+        print("Candidate words (joint-model): \t\t", end="")
+        print_predictions(corpus, missing_word)
 
         print()
