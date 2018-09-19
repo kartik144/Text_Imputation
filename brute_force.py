@@ -15,7 +15,7 @@ def get_dataset(filename, corpus):
             for index, w in enumerate(words):
                 if w not in corpus.dictionary.word2idx.keys():
                     words[index] = '<unk>'
-                    print(w)
+                    # print(w)
 
             ids_left = []
             ids_right = []
@@ -52,7 +52,6 @@ def get_missing_word(input):
 
 
 def print_predictions(corpus, missing_word):
-    missing_word.reverse()  # Reverse list to arrange in descending order of scores
 
     for idx, _ in missing_word:
         print(corpus.dictionary.idx2word[idx], end=", ")
@@ -109,51 +108,68 @@ ntokens = len(corpus.dictionary)
 
 context_left, context_right = get_dataset("context-fill-2.txt", corpus)
 
-################# TODO ########################
-###### Modify to predict from all models#######
-###############################################
+criterion = torch.nn.CrossEntropyLoss()
 
 with open(os.path.join(args.file), "r") as f:
-    for index, line in enumerate(context_right):
-        hidden_left = model_left.init_hidden(1)
-        hidden_right = model_right.init_hidden(1)
+    for index, line in enumerate(context_left):
 
-        input_left = torch.LongTensor(context_left[index]).view(-1, 1).to(device)
-        input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
+        # hidden_right = model_right.init_hidden(1)
+        words = []
+        for w in range(0, len(corpus.dictionary.idx2word)):
+            sentence = line + [w] + context_right[index]
+            inputs = sentence[:-1]
+            target = torch.LongTensor(sentence[1:]).view(-1).to(device)
+            input_left = torch.LongTensor(inputs).view(-1, 1).to(device)
+            hidden_left = model_left.init_hidden(1)
+            outputs_left, hidden_left = model_left(input_left, hidden_left)
+            loss = criterion(outputs_left.view(-1, ntokens), target)
 
-        outputs_left, hidden_left = model_left(input_left, hidden_left)
-        outputs_right, hidden_right = model_left(input_right, hidden_right)
+            if len(words)<10:
+                words.append((w,loss.item()))
+                words.sort(key=itemgetter(1))
+            else:
+                if loss.item() < words[-1][1]:
+                    words[-1] = (w,loss.item())
+                    words.sort(key=itemgetter(1))
 
-        output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
-        output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
-        output_flat = output_flat_left + output_flat_right
+        print_predictions(corpus, words)
 
-        missing_word = get_missing_word(output_flat)
-        missing_word_left = get_missing_word(output_flat_left)
-        missing_word_right = get_missing_word(output_flat_right)
+        # input_left = torch.LongTensor(context_left[index]).view(-1, 1).to(device)
+        # input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
+        #
+        # outputs_left, hidden_left = model_left(input_left, hidden_left)
+        # outputs_right, hidden_right = model_left(input_right, hidden_right)
+        #
+        # output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
+        # output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
+        # output_flat = output_flat_left + output_flat_right
+        #
+        # missing_word = get_missing_word(output_flat)
+        # missing_word_left = get_missing_word(output_flat_left)
+        # missing_word_right = get_missing_word(output_flat_right)
+        #
+        # print(f.readline(), end="")
+        #
+        # print("Candidate words (bidirectional):\t\t", end=" ")
+        # print_predictions(corpus, missing_word)
+        #
+        # print("Candidate words (unidirectional-left):\t", end=" ")
+        # print_predictions(corpus, missing_word_left)
+        #
+        # print("Candidate words (unidirectional-right):\t", end=" ")
+        # print_predictions(corpus, missing_word_right)
+        #
+        # hidden_left = model.init_hidden(1)
+        # hidden_right = model.init_hidden(1)
+        # input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
+        # input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
+        #
+        # outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
+        # output_flat = softmax(outputs.view(-1, ntokens)[-1])
+        #
+        # missing_word = get_missing_word(output_flat)
+        #
+        # print("Candidate words (joint-model): \t\t", end="")
+        # print_predictions(corpus, missing_word)
 
-        print(f.readline(), end="")
-
-        print("Candidate words (bidirectional):\t\t", end=" ")
-        print_predictions(corpus, missing_word)
-
-        print("Candidate words (unidirectional-left):\t", end=" ")
-        print_predictions(corpus, missing_word_left)
-
-        print("Candidate words (unidirectional-right):\t", end=" ")
-        print_predictions(corpus, missing_word_right)
-
-        hidden_left = model.init_hidden(1)
-        hidden_right = model.init_hidden(1)
-        input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
-        input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
-
-        outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
-        output_flat = softmax(outputs.view(-1, ntokens)[-1])
-
-        missing_word = get_missing_word(output_flat)
-
-        print("Candidate words (joint-model): \t\t", end="")
-        print_predictions(corpus, missing_word)
-
-        print()
+        # print()
