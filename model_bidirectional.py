@@ -19,7 +19,8 @@ class RNNModel(nn.Module):
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn_left = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
             self.rnn_right = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nhid * 2, ntoken)
+        self.transformer = nn.Linear(nhid, nhid)
+        self.decoder = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -63,14 +64,14 @@ class RNNModel(nn.Module):
         output_left , hidden_left = self.rnn_left(emb_left, hidden_left)
         output_right, hidden_right = self.rnn_right(emb_right, hidden_right)
 
-
         output_right = output_right.flip(0)
 
-        output_left = self.drop(output_left)
-        output_right = self.drop(output_right)
+        # output_left = self.drop(output_left)
+        # output_right = self.drop(output_right)
 
 
-        output = torch.cat((output_left, output_right),2)
+        output = self.drop(output_left + output_right)
+        output = self.drop(self.transformer(output))
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden_left, hidden_right
 
@@ -89,8 +90,9 @@ class RNNModel(nn.Module):
 
         output_left = (output_left)[-1]
         output_right = (output_right)[-1]
-        output = torch.cat((output_left, output_right), 1)
+        output = output_left + output_right
 
+        output = self.transformer(output)
         decoded = self.decoder(output)
 
         return decoded

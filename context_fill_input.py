@@ -11,7 +11,7 @@ def get_dataset(filename, corpus):
         context_right = []
 
         for line in f:
-            words = line.split()
+            words = ['<sos>'] + line.split() + ['<eos>']
             for index, w in enumerate(words):
                 if w not in corpus.dictionary.word2idx.keys():
                     words[index] = '<unk>'
@@ -38,7 +38,7 @@ def get_dataset(filename, corpus):
 def get_missing_word(input):
     missing_word = []
     for i in range(0, input.size()[-1]):
-        if corpus.dictionary.idx2word[i] in stopWords:
+        if (corpus.dictionary.idx2word[i].lower() in stopWords) or ('.' in corpus.dictionary.idx2word[i]):
             continue
         elif len(missing_word) < 10:
             missing_word.append((i, input[i].data))
@@ -58,7 +58,8 @@ def print_predictions(corpus, missing_word):
         print(corpus.dictionary.idx2word[idx], end=", ")
     print()
 
-stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', '.', ':',"\"", "...", "?", "!", ".."])
+stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK", "_", "mr"])
+
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
@@ -148,7 +149,7 @@ with open(os.path.join(args.file), "r") as f:
         input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
 
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
-        output_flat = softmax(outputs[-1])
+        output_flat = softmax(outputs.view(-1, ntokens)[-1])
 
         missing_word = get_missing_word(output_flat)
 
