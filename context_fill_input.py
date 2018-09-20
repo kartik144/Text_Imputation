@@ -88,18 +88,15 @@ if torch.cuda.is_available():
 device = torch.device("cuda" if args.cuda else "cpu")
 
 with open(args.checkpoint, 'rb') as f:
-    if args.cuda == False:
-        model = torch.load(f,map_location='cpu')
-    else:
-        model = torch.load(f).to(device)
+        model = torch.load(f, map_location = device)
 model.eval()
 
 with open(args.model_left, 'rb') as f:
-    model_left = torch.load(f).to(device)
+    model_left = torch.load(f, map_location = device)
 model_left.eval()
 
 with open(args.model_right, 'rb') as f:
-    model_right = torch.load(f).to(device)
+    model_right = torch.load(f, map_location = device)
 model_right.eval()
 
 softmax = torch.nn.Softmax()
@@ -107,7 +104,7 @@ softmax = torch.nn.Softmax()
 corpus = context_data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
-context_left, context_right = get_dataset("context-fill-2.txt", corpus)
+context_left, context_right = get_dataset(args.file, corpus)
 
 ################# TODO ########################
 ###### Modify to predict from all models#######
@@ -145,8 +142,8 @@ with open(os.path.join(args.file), "r") as f:
 
         hidden_left = model.init_hidden(1)
         hidden_right = model.init_hidden(1)
-        input_left = torch.LongTensor(corpus.context_left[index]).view(-1, 1).to(device)
-        input_right = torch.LongTensor(corpus.context_right[index]).view(-1, 1).to(device)
+        input_left = torch.LongTensor(context_left[index]).view(-1, 1).to(device)
+        input_right = torch.LongTensor(context_right[index]).view(-1, 1).to(device)
 
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
         output_flat = softmax(outputs.view(-1, ntokens)[-1])
