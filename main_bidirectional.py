@@ -131,18 +131,20 @@ def evaluate(data_source):  #
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0.
+    loss = 0.
     ntokens = len(corpus.dictionary)
     hidden_left = model.init_hidden(eval_batch_size)
     hidden_right = model.init_hidden(eval_batch_size)
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 2, args.bptt):
             data_left, data_right, targets = get_batch(data_source, i)
-            output, hidden_left, hidden_right = model(data_left, data_right, hidden_left, hidden_right)
+            output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
-            total_loss += len(data_left) * criterion(output_flat, targets).item()
+            total_loss += len(data_left) * criterion(output_flat, targets).item() + len(data_left) * criterion(output_left.view(-1, ntokens), targets).item() + len(data_left) * criterion(output_right.view(-1, ntokens), targets).item()
+            loss += len(data_left) * criterion(output_flat, targets).item()
             hidden_left = repackage_hidden(hidden_left)
             hidden_right = repackage_hidden(hidden_right)
-    return total_loss / len(data_source)
+    return ((total_loss / len(data_source)), (loss / len(data_source)))
 
 
 def train():
@@ -163,17 +165,21 @@ def train():
 
         model.zero_grad()
 
-        output, hidden_left, hidden_right = model(data_left, data_right, hidden_left, hidden_right)
+        output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
 
-        loss = criterion(output.view(-1, ntokens), targets)
+        loss = criterion(output.view(-1, ntokens), targets) + criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
         loss.backward()
+        # loss_left =
+        # loss_left.backward()
+        # loss_right =
+        # loss_right.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         for p in model.parameters():
             p.data.add_(-lr, p.grad.data)
 
-        total_loss += loss.item()
+        total_loss += criterion(output.view(-1, ntokens), targets).item()
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
@@ -204,11 +210,11 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(val_data)
+        val_loss, joint_loss = evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
+                                           val_loss, math.exp(joint_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
@@ -235,10 +241,10 @@ with open(args.save, 'rb') as f:
     model.rnn_right.flatten_parameters()
 
 # Run on test data.
-test_loss = evaluate(test_data)
+test_loss, joint_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
+    test_loss, math.exp(joint_loss)))
 print('=' * 89)
 
 if len(args.onnx_export) > 0:
