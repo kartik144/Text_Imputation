@@ -72,8 +72,14 @@ class RNNModel(nn.Module):
 
         output = self.drop(output_left + output_right)
         output = self.drop(self.transformer(output))
+
+        output_left = self.drop(output_left)
+        output_right = self.drop(output_right)
+
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden_left, hidden_right
+        decoded_left = self.decoder(output_left.view(output_left.size(0)*output_left.size(1), output_left.size(2)))
+        decoded_right = self.decoder(output_right.view(output_right.size(0)*output_right.size(1), output_right.size(2)))
+        return decoded.view(output.size(0), output.size(1), decoded.size(1)), decoded_left.view(output_left.size(0), output_left.size(1), decoded_left.size(1)), decoded_right.view(output_right.size(0), output_right.size(1), decoded_right.size(1))
 
 
     def text_imputation(self, data_left, data_right, hidden_left, hidden_right):
