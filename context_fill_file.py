@@ -123,16 +123,16 @@ with open(os.path.join(args.file), "r") as f:
 
         output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
         output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
-        # output_flat = output_flat_left + output_flat_right
+        output_flat = output_flat_left + output_flat_right
 
-        # missing_word = get_missing_word(output_flat)
+        missing_word = get_missing_word(output_flat)
         missing_word_left = get_missing_word(output_flat_left)
         missing_word_right = get_missing_word(output_flat_right)
 
         print(f.readline(), end="")
 
-        # print("Candidate words (bidirectional):\t\t", end=" ")
-        # print_predictions(corpus, missing_word)
+        print("Candidate words (bidirectional):\t\t", end=" ")
+        print_predictions(corpus, missing_word)
 
         print("Candidate words (unidirectional-left):\t", end=" ")
         print_predictions(corpus, missing_word_left)
