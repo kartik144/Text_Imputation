@@ -119,7 +119,7 @@ with open(os.path.join(args.file), "r") as f:
         input_right = torch.LongTensor(line).view(-1, 1).flip(0).to(device)
 
         outputs_left, hidden_left = model_left(input_left, hidden_left)
-        outputs_right, hidden_right = model_left(input_right, hidden_right)
+        outputs_right, hidden_right = model_right(input_right, hidden_right)
 
         output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
         output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
