@@ -152,6 +152,7 @@ while(sentence != "$TOP"):
 
         print("Candidate words (joint-model): \t\t", end="")
         print_predictions(corpus, missing_word)
+        print()
 
     except:
         print("Error Occured!! Please re-enter ")
