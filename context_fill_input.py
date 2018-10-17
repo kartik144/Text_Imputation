@@ -34,9 +34,9 @@ def get_inputs(sentence):
             except:
                 break
 
-        if flag == False:
-            print("## No blank inputted!! ##\n")
-        return ids_left, ids_right
+    if flag == False:
+        print("## No blank inputted!! ##\n")
+    return ids_left, ids_right
 
 
 
@@ -114,14 +114,14 @@ sentence = input("Enter sentence (Enter $TOP to stop)\n")
 while(sentence != "$TOP"):
     try:
         left_ids, right_ids = get_inputs(sentence)
+        hidden_left = model_left.init_hidden(1)
+        hidden_right = model_right.init_hidden(1)
 
-        hidden_left = model.init_hidden(1)
-        hidden_right = model.init_hidden(1)
         input_left = torch.LongTensor(left_ids).view(-1, 1).to(device)
         input_right = torch.LongTensor(right_ids).view(-1, 1).flip(0).to(device)
 
         outputs_left, hidden_left = model_left(input_left, hidden_left)
-        outputs_right, hidden_right = model_left(input_right, hidden_right)
+        outputs_right, hidden_right = model_right(input_right, hidden_right)
 
         output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
         output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
@@ -152,9 +152,7 @@ while(sentence != "$TOP"):
 
         print("Candidate words (joint-model): \t\t", end="")
         print_predictions(corpus, missing_word)
-
         print()
-
 
     except:
         print("Error Occured!! Please re-enter ")
