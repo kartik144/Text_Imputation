@@ -80,7 +80,7 @@ def batchify(data, bsz, bptt):
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
-    return data.to(device)
+    return data
 
 
 eval_batch_size = 10
@@ -124,7 +124,7 @@ def get_batch(source, i):
     data_left = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].view(-1)
     data_right = source[i+2:i+2+seq_len]
-    return data_left, data_right, target
+    return data_left.to(device), data_right.to(device), target.to(device)
 
 
 def evaluate(data_source):  #
@@ -190,6 +190,10 @@ def train():
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
+
+        data_left.to("cpu")
+        data_right.to("cpu")
+        targets.to("cpu")
 
 
 def export_onnx(path, batch_size, seq_len):

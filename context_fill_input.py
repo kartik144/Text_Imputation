@@ -34,9 +34,9 @@ def get_inputs(sentence):
             except:
                 break
 
-        if flag == False:
-            print("## No blank inputted!! ##\n")
-        return ids_left, ids_right
+    if flag == False:
+        print("## No blank inputted!! ##\n")
+    return ids_left, ids_right
 
 
 
