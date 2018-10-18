@@ -3,7 +3,7 @@ from operator import itemgetter
 import torch
 import os
 from nltk.corpus import stopwords
-import context_data
+import data
 
 def get_dataset(filename, corpus):
     with open(filename, "r") as f:
@@ -58,14 +58,15 @@ def print_predictions(corpus, missing_word):
         print(corpus.dictionary.idx2word[idx], end=", ")
     print()
 
-stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK", "_", "mr","--", "-", ")", "\'", "("])
+stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK", "_", "mr",
+                                                  "--", "-", ")", "\'", "("])
 
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
-parser.add_argument('--file', type=str, default='./context-fill-2.txt',
+parser.add_argument('--file', type=str, default='../data/context_fill-2.txt',
                     help='location of the file to fill in ')
 parser.add_argument('--checkpoint', type=str, default='./model.pt',
                     help='model checkpoint to use')
@@ -101,7 +102,7 @@ model_right.eval()
 
 softmax = torch.nn.Softmax(dim=0)
 
-corpus = context_data.Corpus(args.data)
+corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
 context_left, context_right = get_dataset(args.file, corpus)

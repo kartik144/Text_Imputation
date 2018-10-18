@@ -3,7 +3,7 @@ from operator import itemgetter
 import torch
 import os
 from nltk.corpus import stopwords
-import context_data
+import data
 
 stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>'])
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
@@ -34,7 +34,7 @@ with open(args.checkpoint, 'rb') as f:
         model = torch.load(f).to(device)
 model.eval()
 
-corpus = context_data.Corpus(args.data)
+corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
 def get_missing_word(input):
@@ -114,7 +114,7 @@ with torch.no_grad():
     print("=" * 80)
     print("\n\n\n")
 
-with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
+with open(os.path.join(args.data, "context_fill"), "r") as f:
     print("=" * 89)
     print("========================= Predicting words for random sentences =========================")
     print("=" * 89)

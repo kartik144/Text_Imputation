@@ -3,7 +3,7 @@ from operator import itemgetter
 import torch
 import os
 from nltk.corpus import stopwords
-import context_data
+import data
 
 
 class Counter():
@@ -58,7 +58,7 @@ model_right.eval()
 
 softmax = torch.nn.Softmax()
 
-corpus = context_data.Corpus(args.data)
+corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 hidden_left = model_left.init_hidden(1)
 hidden_right = model_right.init_hidden(1)
@@ -156,7 +156,7 @@ with torch.no_grad():
     print("=" * 80)
     print("\n\n\n")
 
-with open(os.path.join(args.data, "context-fill.txt"), "r") as f:
+with open(os.path.join(args.data, "context_fill.txt"), "r") as f:
     print("=" * 89)
     print("========================= Predicting words for random sentences =========================")
     print("=" * 89)

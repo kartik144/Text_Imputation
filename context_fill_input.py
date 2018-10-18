@@ -1,9 +1,8 @@
 import argparse
 from operator import itemgetter
 import torch
-import os
 from nltk.corpus import stopwords
-import context_data
+from utils import data
 
 def get_inputs(sentence):
     words = ['<sos>'] + sentence.split() + ['<eos>']
@@ -71,13 +70,13 @@ parser = argparse.ArgumentParser(description='PyTorch Context-filling Language M
 # Model parameters.
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
-parser.add_argument('--file', type=str, default='./context-fill-2.txt',
+parser.add_argument('--file', type=str, default='./context_fill-2.txt',
                     help='location of the file to fill in ')
-parser.add_argument('--checkpoint', type=str, default='./model.pt',
+parser.add_argument('--checkpoint', type=str, default='../models/model.pt',
                     help='model checkpoint to use')
-parser.add_argument('--model_left', type=str, default='./model.pt',
+parser.add_argument('--model_left', type=str, default='../models/model_left.pt',
                     help='model checkpoint to use')
-parser.add_argument('--model_right', type=str, default='./model.pt',
+parser.add_argument('--model_right', type=str, default='../models/model_right.pt',
                     help='model checkpoint to use')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
@@ -107,7 +106,7 @@ model_right.eval()
 
 softmax = torch.nn.Softmax(dim=0)
 
-corpus = context_data.Corpus(args.data)
+corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
 sentence = input("Enter sentence (Enter $TOP to stop)\n")
@@ -158,3 +157,10 @@ while(sentence != "$TOP"):
         print("Error Occured!! Please re-enter ")
 
     sentence = input("Enter sentence (Enter $TOP to stop)\n")
+
+# TODO for project:
+# 1. A monolithic script(instead of the three present in utils) for context filling for a file, including finding out
+# accuracy and others
+# 2. A pre-processing script that replaces words less than a particular frequency with <unk> token
+# 3. Add optimizer options, and find empirical results for all the optimizers (Adam, Adagrad, RMSprop)
+# 4. Try to add self-attention

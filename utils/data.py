@@ -145,13 +145,14 @@ class Corpus(object):
             return context_left, context_right
 
 
-parser = argparse.ArgumentParser(description='PyTorch Corpus utils')
-parser.add_argument('--data', type=str, default='/home/micl-b32-24/Documents/Datasets/1-billion-word-language-modeling-benchmark/Google-1B/',
-                    help='location of the data corpus')
 
-args = parser.parse_args()
 
 def main():
+    parser = argparse.ArgumentParser(description='PyTorch Corpus utils')
+    parser.add_argument('--data', type=str,
+                        default='/home/micl-b32-24/Documents/Datasets/1-billion-word-language-modeling-benchmark/Google-1B/',
+                        help='location of the data corpus')
+    args = parser.parse_args()
     path = args.data
     corpus = Corpus(path)
     corpus.preprocess(path)
