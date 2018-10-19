@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.onnx
 
-from utils import data
+from utils import data_train
 from model import model
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -45,6 +45,10 @@ parser.add_argument('--save', type=str, default='models/model_left.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
+parser.add_argument('--threshold', type=int,
+                    default=1,
+                    help='Threshold for limiting vocab size of model '
+                         '(anything word with frequency than this threshold will not be included)')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -59,7 +63,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+corpus = data_train.Corpus(args.data, args.threshold)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get

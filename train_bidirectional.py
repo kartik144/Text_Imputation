@@ -6,8 +6,8 @@ import os
 import torch
 import torch.nn as nn
 import torch.onnx
-
-from utils import data
+import pickle
+from utils import data_train
 from model import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -45,6 +45,10 @@ parser.add_argument('--save', type=str, default='models/model.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
+parser.add_argument('--threshold', type=int,
+                    default=1,
+                    help='Threshold for limiting vocab size of model '
+                         '(anything word with frequency than this threshold will not be included)')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -59,7 +63,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+corpus = data_train.Corpus(args.data, args.threshold)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -72,6 +76,7 @@ corpus = data.Corpus(args.data)
 # These columns are treated as independent by the model, which means that the
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
+
 
 def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -146,7 +151,9 @@ def evaluate(data_source):  #
             hidden_right = repackage_hidden(hidden_right)
     return ((total_loss / len(data_source)), (loss / len(data_source)))
 
+
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
+
 
 def train():
     # Turn on training mode which enables dropout.
@@ -237,6 +244,10 @@ try:
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
+
+
+with open("Dictionary/dict.pt", "wb") as f:
+    pickle.dump((corpus.dictionary, args.threshold), f)
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:

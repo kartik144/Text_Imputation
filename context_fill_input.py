@@ -2,7 +2,7 @@ import argparse
 from operator import itemgetter
 import torch
 from nltk.corpus import stopwords
-from utils import data
+from utils import data_train
 
 def get_inputs(sentence):
     words = ['<sos>'] + sentence.split() + ['<eos>']
@@ -10,15 +10,14 @@ def get_inputs(sentence):
     ### At present, the model is not trained to process <UNK> tokens ###
     ####################################################################
     for index, w in enumerate(words):
-        if w not in corpus.dictionary.word2idx.keys():
+        if w not in corpus.dictionary.word2idx.keys() and w != "___":
             words[index] = '<unk>'
-            print("## Unknown word: {0} ##".format(w))
 
     ids_left = []
     ids_right = []
     flag = False
     for word in words:
-
+        # print(word)
         if word == "___":
             flag = True
             continue
@@ -63,20 +62,19 @@ def print_predictions(corpus, missing_word):
         print(corpus.dictionary.idx2word[idx], end=", ")
     print()
 
-stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK", "_", "mr","--", "-", ")", "\'", "("])
+stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK",
+                                                  "_", "mr","--", "-", ")", "\'", "("])
 
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
-parser.add_argument('--file', type=str, default='./context_fill-2.txt',
-                    help='location of the file to fill in ')
-parser.add_argument('--checkpoint', type=str, default='../models/model.pt',
+parser.add_argument('--checkpoint', type=str, default='./models/model.pt',
                     help='model checkpoint to use')
-parser.add_argument('--model_left', type=str, default='../models/model_left.pt',
+parser.add_argument('--model_left', type=str, default='./models/model_left.pt',
                     help='model checkpoint to use')
-parser.add_argument('--model_right', type=str, default='../models/model_right.pt',
+parser.add_argument('--model_right', type=str, default='./models/model_right.pt',
                     help='model checkpoint to use')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
@@ -104,9 +102,7 @@ with open(args.model_right, 'rb') as f:
     model_right = torch.load(f, map_location = device)
 model_right.eval()
 
-softmax = torch.nn.Softmax(dim=0)
-
-corpus = data.Corpus(args.data)
+corpus = data_train.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
 sentence = input("Enter sentence (Enter $TOP to stop)\n")
@@ -122,8 +118,8 @@ while(sentence != "$TOP"):
         outputs_left, hidden_left = model_left(input_left, hidden_left)
         outputs_right, hidden_right = model_right(input_right, hidden_right)
 
-        output_flat_left = softmax(outputs_left.view(-1, ntokens)[-1])
-        output_flat_right = softmax(outputs_right.view(-1, ntokens)[-1])
+        output_flat_left = outputs_left.view(-1, ntokens)[-1]
+        output_flat_right = outputs_right.view(-1, ntokens)[-1]
         output_flat = output_flat_left + output_flat_right
 
         missing_word = get_missing_word(output_flat)
@@ -145,7 +141,7 @@ while(sentence != "$TOP"):
         input_right = torch.LongTensor(right_ids).view(-1, 1).to(device)
 
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
-        output_flat = softmax(outputs.view(-1, ntokens)[-1])
+        output_flat = outputs.view(-1, ntokens[-1])
 
         missing_word = get_missing_word(output_flat)
 
@@ -153,14 +149,8 @@ while(sentence != "$TOP"):
         print_predictions(corpus, missing_word)
         print()
 
-    except:
-        print("Error Occured!! Please re-enter ")
+    except Exception as e:
+        print(e)
 
     sentence = input("Enter sentence (Enter $TOP to stop)\n")
 
-# TODO for project:
-# 1. A monolithic script(instead of the three present in utils) for context filling for a file, including finding out
-# accuracy and others
-# 2. A pre-processing script that replaces words less than a particular frequency with <unk> token
-# 3. Add optimizer options, and find empirical results for all the optimizers (Adam, Adagrad, RMSprop)
-# 4. Try to add self-attention
