@@ -7,11 +7,14 @@ import torch
 import torch.nn as nn
 import torch.onnx
 
-import context_data
-import model
+import sys
+sys.path.append(os.path.abspath(".."))
+
+from utils import data_train
+from model import model
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data/penn',
+parser.add_argument('--data', type=str, default='../data/penn',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -21,8 +24,8 @@ parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=20,
-                    help='initial learning rate')
+parser.add_argument('--lr', type=float, default=0.1,
+                    help='initial learning rate') # Set for Adagrad, Change if using another optimizer
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -41,10 +44,14 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='model.pt',
+parser.add_argument('--save', type=str, default='../models/model_left.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
+parser.add_argument('--threshold', type=int,
+                    default=1,
+                    help='Threshold for limiting vocab size of model '
+                         '(anything word with frequency than this threshold will not be included)')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -59,7 +66,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = context_data.Corpus(args.data)
+corpus = data_train.Corpus(args.data, args.threshold)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -80,7 +87,7 @@ def batchify(data, bsz):
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
-    return data.to(device)
+    return data
 
 
 eval_batch_size = 10
@@ -123,7 +130,7 @@ def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
     target = source[i:i + seq_len].flip(0).view(-1)
     data = source[i+1:i+seq_len+1].flip(0)
-    return data, target
+    return data.to(device), target.to(device)
 
 
 def evaluate(data_source):
@@ -139,8 +146,11 @@ def evaluate(data_source):
             output_flat = output.view(-1, ntokens)
             total_loss += len(data) * criterion(output_flat, targets).item()
             hidden = repackage_hidden(hidden)
+            data.to("cpu")
+            targets.to("cpu")
     return total_loss / len(data_source)
 
+optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
 
 def train():
     # Turn on training mode which enables dropout.
@@ -154,15 +164,19 @@ def train():
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
-        model.zero_grad()
+
+        optimizer.zero_grad()
+
         output, hidden = model(data, hidden)
         loss = criterion(output.view(-1, ntokens), targets)
         loss.backward()
 
+        optimizer.step()
+
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-        for p in model.parameters():
-            p.data.add_(-lr, p.grad.data)
+        # for p in model.parameters():
+        #     p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.item()
 
@@ -175,6 +189,9 @@ def train():
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
+
+        data.to("cpu")
+        targets.to("cpu")
 
 
 def export_onnx(path, batch_size, seq_len):

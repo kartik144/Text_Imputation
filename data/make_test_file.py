@@ -6,7 +6,7 @@ import os
 parser = argparse.ArgumentParser(description='PyTorch Context-filling Language Model')
 
 # Model parameters.
-parser.add_argument('--data', type=str, default='./data/penn',
+parser.add_argument('--data', type=str, default='./penn',
                     help='location of the data corpus')
 args = parser.parse_args()
 stopWords = set(list(stopwords.words('english')) + [".",","])

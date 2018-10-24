@@ -6,12 +6,16 @@ import os
 import torch
 import torch.nn as nn
 import torch.onnx
+import pickle
 
-import context_data
-import model_bidirectional
+import sys
+sys.path.append(os.path.abspath(".."))
+
+from utils import data_train
+from model import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data/penn',
+parser.add_argument('--data', type=str, default=os.path.abspath(os.path.join(os.pardir,'data/penn/')),
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -21,8 +25,8 @@ parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=20,
-                    help='initial learning rate')
+parser.add_argument('--lr', type=float, default=0.1,
+                    help='initial learning rate')   # Set for Adagrad, Change if using another optimizer
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -41,10 +45,16 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='model.pt',
+parser.add_argument('--save', type=str, default='../models/model.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
+parser.add_argument('--threshold', type=int,
+                    default=1,
+                    help='Threshold for limiting vocab size of model '
+                         '(anything word with frequency than this threshold will not be included)')
+parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
+                    help='path to pickled dictionary')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -59,7 +69,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = context_data.Corpus(args.data)
+corpus = data_train.Corpus(args.data, args.threshold)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -72,6 +82,7 @@ corpus = context_data.Corpus(args.data)
 # These columns are treated as independent by the model, which means that the
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
+
 
 def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -144,7 +155,13 @@ def evaluate(data_source):  #
             loss += len(data_left) * criterion(output_flat, targets).item()
             hidden_left = repackage_hidden(hidden_left)
             hidden_right = repackage_hidden(hidden_right)
+            data_left.to("cpu")
+            data_right.to("cpu")
+            targets.to("cpu")
     return ((total_loss / len(data_source)), (loss / len(data_source)))
+
+
+optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
 
 
 def train():
@@ -163,31 +180,35 @@ def train():
         hidden_left = repackage_hidden(hidden_left)
         hidden_right = repackage_hidden(hidden_right)
 
-        model.zero_grad()
+        optimizer.zero_grad()
 
         output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
 
         loss = criterion(output.view(-1, ntokens), targets) + criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
         loss.backward()
-        # loss_left =
-        # loss_left.backward()
-        # loss_right =
-        # loss_right.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-        for p in model.parameters():
-            p.data.add_(-lr, p.grad.data)
+        # for p in model.parameters():
+        #     p.data.add_(-lr, p.grad.data)
+
+        optimizer.step()
 
         total_loss += criterion(output.view(-1, ntokens), targets).item()
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
             elapsed = time.time() - start_time
-            print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
-                epoch, batch, len(train_data) // args.bptt, lr,
-                elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+            try:
+                print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+                        'loss {:5.2f} | ppl {:8.2f}'.format(
+                    epoch, batch, len(train_data) // args.bptt, lr,
+                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+            except OverflowError as err:
+                print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+                      'loss {:5.2f} | ppl INF'.format(
+                    epoch, batch, len(train_data) // args.bptt, lr,
+                                  elapsed * 1000 / args.log_interval, cur_loss))
             total_loss = 0
             start_time = time.time()
 
@@ -229,12 +250,13 @@ try:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
             lr /= 4.0
 
-        if (lr == 0):
-            break
-
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
+
+
+with open(args.dict, "wb") as f:
+    pickle.dump((corpus.dictionary, args.threshold), f)
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:
