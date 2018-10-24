@@ -17,8 +17,9 @@ class Dictionary(object):
     def __len__(self):
         return len(self.idx2word)
 
+
 class Corpus(object):
-    def __init__(self, path, threshold=0):
+    def __init__(self, path, threshold=1):
         self.dictionary = Dictionary()
         self.vocab = {}
         self.preprocess(path)
@@ -36,7 +37,7 @@ class Corpus(object):
         # depending upon the threshold
 
         for fname in os.listdir(path):
-            with open (os.path.join(path, fname)) as f :
+            with open (os.path.join(path, fname)) as f:
                 for line in f:
                     words = ['<sos>'] + line.split() + ['<eos>']
                     for word in words:
@@ -90,6 +91,7 @@ class Corpus(object):
 
             return ids
 
+
 def main():
 
     parser = argparse.ArgumentParser(description='PyTorch Corpus utils')
@@ -101,10 +103,16 @@ def main():
                         default=1,
                         help='Threshold for limiting vocab size of model '
                              '(any word with frequency <= threshold will not be included)')
+    parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
+                        help='path to pickled dictionary')
+
     args = parser.parse_args()
 
     corpus = Corpus(args.data, args.threshold)
     ntokens = len(corpus.dictionary)
+    with open(args.dict, "wb") as f:
+        pickle.dump((corpus.dictionary, args.threshold), f)
+
     print("Number of tokens in vocabulary: {0}".format(ntokens))
 
 if __name__ == "__main__":

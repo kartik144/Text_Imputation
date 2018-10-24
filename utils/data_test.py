@@ -2,7 +2,7 @@ import os
 import argparse
 import pickle
 
-def tokenize(path, dict, targets = False):
+def tokenize_file(path, dict, targets = False):
     """Tokenizes a text file."""
     assert os.path.exists(path)
 
@@ -24,23 +24,55 @@ def tokenize(path, dict, targets = False):
                 if flag == False:
                     try:
                         ids_left.append(dict.word2idx[word])
-                    except:
+                    except KeyError:
                         ids_left.append(dict.word2idx["<unk>"])
                 else:
                     try:
                         ids_right.append(dict.word2idx[word])
-                    except:
+                    except KeyError:
                         ids_right.append(dict.word2idx["<unk>"])
 
 
             left.append(ids_left)
             right.append(ids_right)
 
+            if flag == False:
+                print("## No blank inputted!! ##\n")
 
             if targets:
-                target.append(dict.word2idx[f.readline().split()[0]])
-
+                try:
+                    target.append(dict.word2idx[f.readline().split()[0]])
+                except KeyError:
+                    target.append(dict.word2idx["<unk>"])
         if targets:
             return left, target, right
         else:
             return left, right
+
+def tokenize_input(sent, dict):
+    left = []
+    right = []
+
+    words = ['<sos>'] + sent.split() + ['<eos>']
+    flag = False
+
+    for word in words:
+
+        if word == "___":
+            flag = True
+            continue
+        if flag == False:
+            try:
+                left.append(dict.word2idx[word])
+            except KeyError:
+                left.append(dict.word2idx["<unk>"])
+        else:
+            try:
+                right.append(dict.word2idx[word])
+            except KeyError:
+                right.append(dict.word2idx["<unk>"])
+
+    if flag == False:
+        print("## No blank inputted!! ##\n")
+
+    return left, right

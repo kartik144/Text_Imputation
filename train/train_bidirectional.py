@@ -6,12 +6,16 @@ import os
 import torch
 import torch.nn as nn
 import torch.onnx
+import pickle
+
+import sys
+sys.path.append(os.path.abspath(".."))
 
 from utils import data_train
-from model import model
+from model import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data/penn',
+parser.add_argument('--data', type=str, default=os.path.abspath(os.path.join(os.pardir,'data/penn/')),
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -22,7 +26,7 @@ parser.add_argument('--nhid', type=int, default=200,
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
 parser.add_argument('--lr', type=float, default=0.1,
-                    help='initial learning rate') # Set for Adagrad, Change if using another optimizer
+                    help='initial learning rate')   # Set for Adagrad, Change if using another optimizer
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -41,7 +45,7 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='models/model_right.pt',
+parser.add_argument('--save', type=str, default='../models/model.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
@@ -49,6 +53,8 @@ parser.add_argument('--threshold', type=int,
                     default=1,
                     help='Threshold for limiting vocab size of model '
                          '(anything word with frequency than this threshold will not be included)')
+parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
+                    help='path to pickled dictionary')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -77,27 +83,28 @@ corpus = data_train.Corpus(args.data, args.threshold)
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
 
-def batchify(data, bsz):
+
+def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
-    nbatch = data.size(0) // bsz
+    nbatch = (((data.size(0) // bsz) - 2) // bptt) * bptt + 2
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
-    return data.to(device)
+    return data
 
 
 eval_batch_size = 10
-train_data = batchify(corpus.train, args.batch_size)
-val_data = batchify(corpus.valid, eval_batch_size)
-test_data = batchify(corpus.test, eval_batch_size)
+train_data = batchify(corpus.train, args.batch_size, args.bptt)
+val_data = batchify(corpus.valid, eval_batch_size, args.bptt)
+test_data = batchify(corpus.test, eval_batch_size, args.bptt)
 
 ###############################################################################
 # Build the model
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
-model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+model = model_bidirectional.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -125,27 +132,37 @@ def repackage_hidden(h):
 
 def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = source[i:i+seq_len]
+    data_left = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].view(-1)
-    return data, target
+    data_right = source[i+2:i+2+seq_len]
+    return data_left.to(device), data_right.to(device), target.to(device)
 
 
-def evaluate(data_source):
+def evaluate(data_source):  #
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0.
+    loss = 0.
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(eval_batch_size)
+    hidden_left = model.init_hidden(eval_batch_size)
+    hidden_right = model.init_hidden(eval_batch_size)
     with torch.no_grad():
-        for i in range(0, data_source.size(0) - 1, args.bptt):
-            data, targets = get_batch(data_source, i)
-            output, hidden = model(data, hidden)
+        for i in range(0, data_source.size(0) - 2, args.bptt):
+            data_left, data_right, targets = get_batch(data_source, i)
+            output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
-            total_loss += len(data) * criterion(output_flat, targets).item()
-            hidden = repackage_hidden(hidden)
-    return total_loss / len(data_source)
+            total_loss += len(data_left) * criterion(output_flat, targets).item() + len(data_left) * criterion(output_left.view(-1, ntokens), targets).item() + len(data_left) * criterion(output_right.view(-1, ntokens), targets).item()
+            loss += len(data_left) * criterion(output_flat, targets).item()
+            hidden_left = repackage_hidden(hidden_left)
+            hidden_right = repackage_hidden(hidden_right)
+            data_left.to("cpu")
+            data_right.to("cpu")
+            targets.to("cpu")
+    return ((total_loss / len(data_source)), (loss / len(data_source)))
+
 
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
+
 
 def train():
     # Turn on training mode which enables dropout.
@@ -153,27 +170,31 @@ def train():
     total_loss = 0.
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(args.batch_size)
-    for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        data, targets = get_batch(train_data, i)
+    hidden_left = model.init_hidden(args.batch_size)
+    hidden_right = model.init_hidden(args.batch_size)
+
+    for batch, i in enumerate(range(0, train_data.size(0) - 2, args.bptt)):
+        data_left, data_right, targets = get_batch(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
-        hidden = repackage_hidden(hidden)
+        hidden_left = repackage_hidden(hidden_left)
+        hidden_right = repackage_hidden(hidden_right)
 
         optimizer.zero_grad()
 
-        output, hidden = model(data, hidden)
-        loss = criterion(output.view(-1, ntokens), targets)
-        loss.backward()
+        output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
 
-        optimizer.step()
+        loss = criterion(output.view(-1, ntokens), targets) + criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
+        loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         # for p in model.parameters():
         #     p.data.add_(-lr, p.grad.data)
 
-        total_loss += loss.item()
+        optimizer.step()
+
+        total_loss += criterion(output.view(-1, ntokens), targets).item()
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
@@ -185,11 +206,15 @@ def train():
                     elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             except OverflowError as err:
                 print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                      'loss {:5.2f} | ppl {:8.2f}'.format(
+                      'loss {:5.2f} | ppl INF'.format(
                     epoch, batch, len(train_data) // args.bptt, lr,
-                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+                                  elapsed * 1000 / args.log_interval, cur_loss))
             total_loss = 0
             start_time = time.time()
+
+        data_left.to("cpu")
+        data_right.to("cpu")
+        targets.to("cpu")
 
 
 def export_onnx(path, batch_size, seq_len):
@@ -210,11 +235,11 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(val_data)
+        val_loss, joint_loss = evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
+                                           val_loss, math.exp(joint_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
@@ -224,22 +249,28 @@ try:
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
             lr /= 4.0
+
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
+
+
+with open(args.dict, "wb") as f:
+    pickle.dump((corpus.dictionary, args.threshold), f)
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
-    model.rnn.flatten_parameters()
+    model.rnn_left.flatten_parameters()
+    model.rnn_right.flatten_parameters()
 
 # Run on test data.
-test_loss = evaluate(test_data)
+test_loss, joint_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
+    test_loss, math.exp(joint_loss)))
 print('=' * 89)
 
 if len(args.onnx_export) > 0:

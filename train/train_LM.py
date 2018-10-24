@@ -7,11 +7,14 @@ import torch
 import torch.nn as nn
 import torch.onnx
 
+import sys
+sys.path.append(os.path.abspath(".."))
+
 from utils import data_train
 from model import model
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data/penn',
+parser.add_argument('--data', type=str, default='../data/penn',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -41,7 +44,7 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='models/model_left.pt',
+parser.add_argument('--save', type=str, default='../models/model_left.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
@@ -84,7 +87,7 @@ def batchify(data, bsz):
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
-    return data.to(device)
+    return data
 
 
 eval_batch_size = 10
@@ -127,7 +130,7 @@ def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
     target = source[i:i + seq_len].flip(0).view(-1)
     data = source[i+1:i+seq_len+1].flip(0)
-    return data, target
+    return data.to(device), target.to(device)
 
 
 def evaluate(data_source):
@@ -143,6 +146,8 @@ def evaluate(data_source):
             output_flat = output.view(-1, ntokens)
             total_loss += len(data) * criterion(output_flat, targets).item()
             hidden = repackage_hidden(hidden)
+            data.to("cpu")
+            targets.to("cpu")
     return total_loss / len(data_source)
 
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
@@ -184,6 +189,9 @@ def train():
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
+
+        data.to("cpu")
+        targets.to("cpu")
 
 
 def export_onnx(path, batch_size, seq_len):
