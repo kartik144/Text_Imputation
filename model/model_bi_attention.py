@@ -19,8 +19,13 @@ class RNNModel(nn.Module):
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn_left = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
             self.rnn_right = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.transformer = nn.Linear(nhid*2, nhid)
+
+        self.attn = nn.Linear(nhid*3,1)
+        self.softmax = nn.Softmax()
+
+        self.transformer = nn.Linear(nhid * 3, nhid)
         self.tanh = nn.Tanh()
+        
         self.decoder = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:
@@ -72,13 +77,13 @@ class RNNModel(nn.Module):
         output = self.drop(torch.cat((output_left, output_right), -1))
         output = self.transformer(output)
 
-        # output_left = self.drop(output_left)
-        # output_right = self.drop(output_right)
+        output_left = self.drop(output_left)
+        output_right = self.drop(output_right)
 
         decoded = self.decoder(self.tanh(output.view(output.size(0)*output.size(1), output.size(2))))
         # decoded_left = self.decoder(output_left.view(output_left.size(0)*output_left.size(1), output_left.size(2)))
         # decoded_right = self.decoder(output_right.view(output_right.size(0)*output_right.size(1), output_right.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)) #, decoded_left.view(output_left.size(0), output_left.size(1), decoded_left.size(1)), decoded_right.view(output_right.size(0), output_right.size(1), decoded_right.size(1))
+        return decoded.view(output.size(0), output.size(1), decoded.size(1))
 
 
     def text_imputation(self, data_left, data_right, hidden_left, hidden_right):
@@ -95,9 +100,9 @@ class RNNModel(nn.Module):
 
         output_left = (output_left)[-1]
         output_right = (output_right)[-1]
-        output = torch.cat((output_left, output_right), -1)
+        output = output_left + output_right
 
-        output = self.tanh(self.transformer(output))
+        output = self.transformer(output)
         decoded = self.decoder(output)
 
         return decoded

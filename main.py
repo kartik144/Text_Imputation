@@ -1,7 +1,8 @@
 import argparse
 import torch
 import pickle
-from utils import *
+from utils import data_test
+from utils import process
 
 
 parser = argparse.ArgumentParser(description='PyTorch Sentence Completion Model')

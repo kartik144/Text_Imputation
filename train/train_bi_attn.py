@@ -11,7 +11,7 @@ import pickle
 import sys
 sys.path.append(os.path.abspath(".."))
 
-from utils import data_train
+from utils import data_train_attn
 from model import model_bidirectional
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -53,6 +53,10 @@ parser.add_argument('--threshold', type=int,
                     default=1,
                     help='Threshold for limiting vocab size of model '
                          '(anything word with frequency than this threshold will not be included)')
+parser.add_argument('--sen_length', type=int,
+                    default=50,
+                    help='Threshold for limiting sentences of the data '
+                         '(to restrict unnecessary long sentences)')
 parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                     help='path to pickled dictionary')
 args = parser.parse_args()
@@ -69,7 +73,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data_train.Corpus(args.data, args.threshold)
+corpus = data_train_attn.Corpus(args.data, args.threshold, args.sen_length)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -78,7 +82,7 @@ corpus = data_train.Corpus(args.data, args.threshold)
 # │ c i o u │
 # │ d j p v │
 # │ e k q w │
-# └ f l r x ┘.
+# └ f l r x ┘
 # These columns are treated as independent by the model, which means that the
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
@@ -141,7 +145,7 @@ def get_batch(source, i):
 def evaluate(data_source):  #
     # Turn on evaluation mode which disables dropout.
     model.eval()
-    # total_loss = 0.
+    total_loss = 0.
     loss = 0.
     ntokens = len(corpus.dictionary)
     hidden_left = model.init_hidden(eval_batch_size)
@@ -149,16 +153,16 @@ def evaluate(data_source):  #
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 2, args.bptt):
             data_left, data_right, targets = get_batch(data_source, i)
-            output = model(data_left, data_right, hidden_left, hidden_right)
+            output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
-            #total_loss += len(data_left) * criterion(output_flat, targets).item() + len(data_left) * criterion(output_left.view(-1, ntokens), targets).item() + len(data_left) * criterion(output_right.view(-1, ntokens), targets).item()
+            total_loss += len(data_left) * criterion(output_flat, targets).item() + len(data_left) * criterion(output_left.view(-1, ntokens), targets).item() + len(data_left) * criterion(output_right.view(-1, ntokens), targets).item()
             loss += len(data_left) * criterion(output_flat, targets).item()
             hidden_left = repackage_hidden(hidden_left)
             hidden_right = repackage_hidden(hidden_right)
             data_left.to("cpu")
             data_right.to("cpu")
             targets.to("cpu")
-    return loss / len(data_source)
+    return ((total_loss / len(data_source)), (loss / len(data_source)))
 
 
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
@@ -182,9 +186,9 @@ def train():
 
         optimizer.zero_grad()
 
-        output = model(data_left, data_right, hidden_left, hidden_right)
+        output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
 
-        loss = criterion(output.view(-1, ntokens), targets) #+ criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
+        loss = criterion(output.view(-1, ntokens), targets) + criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -235,11 +239,11 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(val_data)
+        val_loss, joint_loss = evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
+                                           val_loss, math.exp(joint_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
@@ -267,10 +271,10 @@ with open(args.save, 'rb') as f:
     model.rnn_right.flatten_parameters()
 
 # Run on test data.
-test_loss = evaluate(test_data)
+test_loss, joint_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
+    test_loss, math.exp(joint_loss)))
 print('=' * 89)
 
 if len(args.onnx_export) > 0:
