@@ -21,6 +21,14 @@ def get_missing_word(input, dictionary, N):
 
     return missing_word
 
+def get_predictions(dictionary, missing_word):
+    missing_word.reverse()  # Reverse list to arrange in descending order of scores
+    output = []
+
+    for idx, _ in missing_word:
+        output.append(dictionary.idx2word[idx])
+
+    return output
 
 def print_predictions(dictionary, missing_word):
     missing_word.reverse()  # Reverse list to arrange in descending order of scores

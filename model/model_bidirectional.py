@@ -70,12 +70,12 @@ class RNNModel(nn.Module):
         # output_right = self.drop(output_right)
 
         output = self.drop(torch.cat((output_left, output_right), -1))
-        output = self.transformer(output)
+        output = self.tanh(self.transformer(output))
 
         # output_left = self.drop(output_left)
         # output_right = self.drop(output_right)
 
-        decoded = self.decoder(self.tanh(output.view(output.size(0)*output.size(1), output.size(2))))
+        decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         # decoded_left = self.decoder(output_left.view(output_left.size(0)*output_left.size(1), output_left.size(2)))
         # decoded_right = self.decoder(output_right.view(output_right.size(0)*output_right.size(1), output_right.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)) #, decoded_left.view(output_left.size(0), output_left.size(1), decoded_left.size(1)), decoded_right.view(output_right.size(0), output_right.size(1), decoded_right.size(1))
@@ -85,16 +85,16 @@ class RNNModel(nn.Module):
 
         data_right = data_right.flip(0)
 
-        emb_left = (self.encoder(data_left))
-        emb_right = (self.encoder(data_right))
+        emb_left = self.encoder(data_left)
+        emb_right = self.encoder(data_right)
 
         output_left, hidden_left = self.rnn_left(emb_left, hidden_left)
         output_right, hidden_right = self.rnn_right(emb_right, hidden_right)
 
         output_right = output_right.flip(0)
 
-        output_left = (output_left)[-1]
-        output_right = (output_right)[-1]
+        output_left = output_left[-1]
+        output_right = output_right[0]
         output = torch.cat((output_left, output_right), -1)
 
         output = self.tanh(self.transformer(output))

@@ -12,7 +12,7 @@ import sys
 sys.path.append(os.path.abspath(".."))
 
 from utils import data_train_attn
-from model import model_bidirectional
+from model import model_bi_attention
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default=os.path.abspath(os.path.join(os.pardir,'data/penn/')),
@@ -45,7 +45,7 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='../models/model.pt',
+parser.add_argument('--save', type=str, default='../models/model_attn.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
@@ -60,6 +60,8 @@ parser.add_argument('--sen_length', type=int,
 parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                     help='path to pickled dictionary')
 args = parser.parse_args()
+
+args.bptt = args.sen_length
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -90,7 +92,7 @@ corpus = data_train_attn.Corpus(args.data, args.threshold, args.sen_length)
 
 def batchify(data, bsz, bptt):
     # Work out how cleanly we can divide the dataset into bsz parts.
-    nbatch = (((data.size(0) // bsz) - 2) // bptt) * bptt + 2
+    nbatch = ((data.size(0) // bptt) // bsz) * bptt
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
@@ -108,7 +110,7 @@ test_data = batchify(corpus.test, eval_batch_size, args.bptt)
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
-model = model_bidirectional.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+model = model_bi_attention.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.sen_length, device, args.dropout, args.tied).to(device)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -135,7 +137,7 @@ def repackage_hidden(h):
 # to the seq_len dimension in the LSTM.
 
 def get_batch(source, i):
-    seq_len = min(args.bptt, len(source) - 1 - i)
+    seq_len = min(args.bptt-2, len(source) - 1 - i)
     data_left = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].view(-1)
     data_right = source[i+2:i+2+seq_len]
@@ -145,7 +147,6 @@ def get_batch(source, i):
 def evaluate(data_source):  #
     # Turn on evaluation mode which disables dropout.
     model.eval()
-    total_loss = 0.
     loss = 0.
     ntokens = len(corpus.dictionary)
     hidden_left = model.init_hidden(eval_batch_size)
@@ -153,16 +154,15 @@ def evaluate(data_source):  #
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 2, args.bptt):
             data_left, data_right, targets = get_batch(data_source, i)
-            output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
+            output = model(data_left, data_right, hidden_left, hidden_right)
             output_flat = output.view(-1, ntokens)
-            total_loss += len(data_left) * criterion(output_flat, targets).item() + len(data_left) * criterion(output_left.view(-1, ntokens), targets).item() + len(data_left) * criterion(output_right.view(-1, ntokens), targets).item()
             loss += len(data_left) * criterion(output_flat, targets).item()
             hidden_left = repackage_hidden(hidden_left)
             hidden_right = repackage_hidden(hidden_right)
             data_left.to("cpu")
             data_right.to("cpu")
             targets.to("cpu")
-    return ((total_loss / len(data_source)), (loss / len(data_source)))
+    return (loss / len(data_source))
 
 
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
@@ -186,9 +186,9 @@ def train():
 
         optimizer.zero_grad()
 
-        output, output_left, output_right = model(data_left, data_right, hidden_left, hidden_right)
+        output = model(data_left, data_right, hidden_left, hidden_right)
 
-        loss = criterion(output.view(-1, ntokens), targets) + criterion(output_left.view(-1, ntokens), targets) + criterion(output_right.view(-1, ntokens), targets)
+        loss = criterion(output.view(-1, ntokens), targets)
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -198,21 +198,21 @@ def train():
 
         optimizer.step()
 
-        total_loss += criterion(output.view(-1, ntokens), targets).item()
+        total_loss += loss.item()
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
             elapsed = time.time() - start_time
             try:
                 print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                        'loss {:5.2f} | ppl {:8.2f}'.format(
-                    epoch, batch, len(train_data) // args.bptt, lr,
-                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+                      'loss {:5.2f} | ppl {:8.2f}'.format(
+                      epoch, batch, len(train_data) // args.bptt, lr,
+                      elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             except OverflowError as err:
                 print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                       'loss {:5.2f} | ppl INF'.format(
-                    epoch, batch, len(train_data) // args.bptt, lr,
-                                  elapsed * 1000 / args.log_interval, cur_loss))
+                       epoch, batch, len(train_data) // args.bptt, lr,
+                       elapsed * 1000 / args.log_interval, cur_loss))
             total_loss = 0
             start_time = time.time()
 
@@ -239,11 +239,11 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss, joint_loss = evaluate(val_data)
+        val_loss = evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(joint_loss)))
+                                           val_loss, math.exp(val_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
@@ -271,10 +271,10 @@ with open(args.save, 'rb') as f:
     model.rnn_right.flatten_parameters()
 
 # Run on test data.
-test_loss, joint_loss = evaluate(test_data)
+test_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(joint_loss)))
+    test_loss, math.exp(test_loss)))
 print('=' * 89)
 
 if len(args.onnx_export) > 0:

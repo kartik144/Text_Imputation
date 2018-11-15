@@ -1,7 +1,6 @@
 import os
 
-
-def tokenize_file(path, dict, limit=-1, targets=False):
+def tokenize_file(path, dict, limit, targets = False):
     """Tokenizes a text file."""
     assert os.path.exists(path)
 
@@ -15,11 +14,10 @@ def tokenize_file(path, dict, limit=-1, targets=False):
             ids_right = []
             words = ['<sos>'] + line.split() + ['<eos>']
 
-            if limit != -1 and len(words) < limit:
+            if len(words) < limit:
                 words += (["<NULL>"] * (limit - len(words)))
 
             flag = False
-
             for word in words:
 
                 if word == "___":
@@ -53,16 +51,11 @@ def tokenize_file(path, dict, limit=-1, targets=False):
         else:
             return left, right
 
-
-def tokenize_input(sent, dict, limit=-1):
+def tokenize_input(sent, dict, lim):
     left = []
     right = []
 
     words = ['<sos>'] + sent.split() + ['<eos>']
-
-    if limit != -1 and len(words) < limit:
-        words += (["<NULL>"] * (limit - len(words)))
-
     flag = False
 
     for word in words:
