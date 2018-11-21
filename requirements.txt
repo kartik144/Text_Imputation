@@ -1,3 +1,5 @@
 python 3.6
 torch
 nltk
+numpy
+matplotlib
