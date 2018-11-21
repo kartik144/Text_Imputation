@@ -4,7 +4,7 @@ import torch
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, sen_length, device, dropout=0.5, tie_weights=False):
         super(RNNModel, self).__init__()
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
@@ -19,8 +19,13 @@ class RNNModel(nn.Module):
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn_left = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
             self.rnn_right = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.transformer = nn.Linear(nhid*2, nhid)
+
+        self.attn = nn.Linear(nhid*3,1)
+        self.softmax = nn.Softmax(dim=0)
+
+        self.transformer = nn.Linear(nhid*3, nhid)
         self.tanh = nn.Tanh()
+
         self.decoder = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:
@@ -46,6 +51,8 @@ class RNNModel(nn.Module):
         self.rnn_type = rnn_type
         self.nhid = nhid
         self.nlayers = nlayers
+        self.length = sen_length # Denotes the padding at the end of the sentence
+        self.device = device
         self.bidirectional = True
 
     def init_weights(self):
@@ -61,24 +68,28 @@ class RNNModel(nn.Module):
         emb_left = self.drop(self.encoder(data_left))
         emb_right = self.drop(self.encoder(data_right))
 
-        output_left , hidden_left = self.rnn_left(emb_left, hidden_left)
+        output_left, hidden_left = self.rnn_left(emb_left, hidden_left)
         output_right, hidden_right = self.rnn_right(emb_right, hidden_right)
 
         output_right = output_right.flip(0)
 
-        # output_left = self.drop(output_left)
-        # output_right = self.drop(output_right)
+        output = torch.zeros(output_left.size()).to(self.device)
 
-        output = self.drop(torch.cat((output_left, output_right), -1))
-        output = self.tanh(self.transformer(output))
-
-        # output_left = self.drop(output_left)
-        # output_right = self.drop(output_right)
+        for i in range(0,output_left.size(0)):
+            context = torch.cat((output_left[0:i+1], output_right[i:]),0)
+            concat = self.drop(torch.cat((output_left[i].expand_as(context),
+                                          output_right[i].expand_as(context), context), -1))
+            attn_weight = self.tanh(self.attn(concat.view(concat.size(0)*concat.size(1), concat.size(2))))
+            attn_weight = attn_weight.view(concat.size(0), concat.size(1), attn_weight.size(-1))
+            attn_weight = self.softmax(attn_weight)
+            context_vector = attn_weight*context
+            context_vector = context_vector.sum(dim=0)
+            concat2 = self.drop(torch.cat((output_left[i], output_right[i], context_vector), -1))
+            predicted = self.tanh(self.transformer(concat2))
+            output[i] = predicted
 
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        # decoded_left = self.decoder(output_left.view(output_left.size(0)*output_left.size(1), output_left.size(2)))
-        # decoded_right = self.decoder(output_right.view(output_right.size(0)*output_right.size(1), output_right.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)) #, decoded_left.view(output_left.size(0), output_left.size(1), decoded_left.size(1)), decoded_right.view(output_right.size(0), output_right.size(1), decoded_right.size(1))
+        return decoded.view(output.size(0), output.size(1), decoded.size(1))
 
 
     def text_imputation(self, data_left, data_right, hidden_left, hidden_right):
@@ -93,14 +104,19 @@ class RNNModel(nn.Module):
 
         output_right = output_right.flip(0)
 
-        output_left = output_left[-1]
-        output_right = output_right[0]
-        output = torch.cat((output_left, output_right), -1)
+        context = torch.cat((output_left, output_right), 0)
+        concat = torch.cat((output_left[-1].expand_as(context),
+                                      output_right[0].expand_as(context), context), -1)
+        attn_weight = self.tanh(self.attn(concat.view(concat.size(0) * concat.size(1), concat.size(2))))
+        attn_weight = attn_weight.view(concat.size(0), concat.size(1), attn_weight.size(-1))
+        attn_weight = self.softmax(attn_weight)
+        context_vector = attn_weight * context
+        context_vector = context_vector.sum(dim=0)
+        concat2 = torch.cat((output_left[-1], output_right[0], context_vector), -1)
+        predicted = self.tanh(self.transformer(concat2))
+        decoded = self.decoder(predicted)
 
-        output = self.tanh(self.transformer(output))
-        decoded = self.decoder(output)
-
-        return decoded
+        return decoded, attn_weight
 
 
     def init_hidden(self, bsz):

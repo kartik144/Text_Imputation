@@ -128,8 +128,8 @@ def repackage_hidden(h):
 
 def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    target = source[i:i + seq_len].flip(0).view(-1)
-    data = source[i+1:i+seq_len+1].flip(0)
+    data = source[i:i+seq_len]
+    target = source[i+1:i+1+seq_len].view(-1)
     return data.to(device), target.to(device)
 
 
@@ -150,7 +150,9 @@ def evaluate(data_source):
             targets.to("cpu")
     return total_loss / len(data_source)
 
+
 optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr, lr_decay=1e-4, weight_decay=1e-5)
+
 
 def train():
     # Turn on training mode which enables dropout.
@@ -183,16 +185,21 @@ def train():
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
             elapsed = time.time() - start_time
-            print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
-                epoch, batch, len(train_data) // args.bptt, lr,
-                elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+            try:
+                print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+                        'loss {:5.2f} | ppl {:8.2f}'.format(
+                    epoch, batch, len(train_data) // args.bptt, lr,
+                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+            except OverflowError as err:
+                print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+                      'loss {:5.2f} | ppl {:8.2f}'.format(
+                    epoch, batch, len(train_data) // args.bptt, lr,
+                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
 
         data.to("cpu")
         targets.to("cpu")
-
 
 def export_onnx(path, batch_size, seq_len):
     print('The model is also exported in ONNX format at {}'.

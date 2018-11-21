@@ -1,8 +1,7 @@
 import os
-import argparse
-import pickle
 
-def tokenize_file(path, dict, targets = False):
+
+def tokenize_file(path, dict, limit=-1, targets=False):
     """Tokenizes a text file."""
     assert os.path.exists(path)
 
@@ -15,7 +14,12 @@ def tokenize_file(path, dict, targets = False):
             ids_left = []
             ids_right = []
             words = ['<sos>'] + line.split() + ['<eos>']
+
+            if limit != -1 and len(words) < limit:
+                words += (["<NULL>"] * (limit - len(words)))
+
             flag = False
+
             for word in words:
 
                 if word == "___":
@@ -49,11 +53,16 @@ def tokenize_file(path, dict, targets = False):
         else:
             return left, right
 
-def tokenize_input(sent, dict):
+
+def tokenize_input(sent, dict, limit=-1):
     left = []
     right = []
 
     words = ['<sos>'] + sent.split() + ['<eos>']
+
+    if limit != -1 and len(words) < limit:
+        words += (["<NULL>"] * (limit - len(words)))
+
     flag = False
 
     for word in words:
