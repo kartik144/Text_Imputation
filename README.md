@@ -11,7 +11,7 @@ The training scripts are in [train](https://github.com/kartik144/Text_Imputation
 The training scripts accept the following optional arguments: 
 
 ```
-optional arguments:
+general arguments:
   -h, --help         show this help message and exit
   --data DATA        location of the data corpus
   --model MODEL      type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)
@@ -30,6 +30,36 @@ optional arguments:
   --cuda             use CUDA
   --log-interval N   report interval
   --save SAVE        path to save the final model
+  --threshold N      specify threshold such that words with frequency less 
+                     than the threshold will be discarded
+
+arguments pecific to train_bidirectional.py  
+  --dict DICT        path to file where the dictionary would be saved
+
+arguments pecific to train_bidirectional.py  
+  --dict DICT        path to file where the dictionary would be saved
+  --sen_length N     threshold to eliminate unneccary long sentences.
+
   ```
 
 During training, if a keyboard interrupt (Ctrl-C) is received, training is stopped and the current model is evaluated against the test dataset.
+
+
+## Evaluation 
+The models be used to predict the missing words using the `main.py` file. It uses all the models - both language models, bi-LSTM based model and attention based model to suggest words and then displays them for comparison. The attention based model also outputs attention weights which are visualized.
+
+The `main.py`  accept the following optional arguments:
+```
+  --data DATA             location of the data corpus
+  --model_left MODEL      path to saved model of language model
+  --model_right MODEL     path to saved model of reverse language model
+  --model_bi              path to saved model of bi-LSTM based model
+  --model_attn            path to saved model of attention based model
+  --dict                  path to dictionary used by language model, rev language model and bi-LSTM based model
+  --dict_attn             path to dictionary used by attention based model
+  --sen_length N          threshold to pad sentences for attention based model.
+  --file                  path to file if the inputs are stored in a file
+  --N n                   number of words to be suggested by each model
+  --seed SEED             random seed
+  --cuda                  use CUDA
+```
