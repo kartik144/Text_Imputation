@@ -3,6 +3,7 @@ import torch
 import argparse
 import pickle
 
+
 class Dictionary(object):
     def __init__(self):
         self.word2idx = {}
@@ -19,8 +20,9 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, threshold=1):
+    def __init__(self, path, threshold=1, case_=False):
         self.dictionary = Dictionary()
+        self.case = case_
         self.vocab = {}
         self.preprocess(path)
         self.train = self.tokenize(os.path.join(path, 'train.txt'), threshold)
@@ -39,6 +41,10 @@ class Corpus(object):
         for fname in os.listdir(path):
             with open (os.path.join(path, fname)) as f:
                 for line in f:
+
+                    if self.case:
+                        line = line.lower()
+
                     words = ['<sos>'] + line.split() + ['<eos>']
                     for word in words:
                         if word in self.vocab.keys():
@@ -70,6 +76,10 @@ class Corpus(object):
         # Add to dictionary
         with open(path, 'r', encoding="utf8") as f:
             for line in f:
+
+                if self.case:
+                    line = line.lower()
+
                 words = ['<sos>'] + line.split() + ['<eos>']
                 tokens += len(words)
                 for word in words:
@@ -82,6 +92,10 @@ class Corpus(object):
             ids = torch.LongTensor(tokens)
             token = 0
             for line in f:
+
+                if self.case:
+                    line = line.lower()
+
                 words = ['<sos>'] + line.split() + ['<eos>']
                 for word in words:
                     if self.vocab[word] <= threshold:
@@ -105,15 +119,18 @@ def main():
                              '(any word with frequency <= threshold will not be included)')
     parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                         help='path to pickled dictionary')
+    parser.add_argument('--case', action='store_true',
+                        help='use to convert all words to lowercase')
 
     args = parser.parse_args()
 
-    corpus = Corpus(args.data, args.threshold)
+    corpus = Corpus(args.data, args.threshold, args.case)
     ntokens = len(corpus.dictionary)
     with open(args.dict, "wb") as f:
         pickle.dump((corpus.dictionary, args.threshold), f)
 
     print("Number of tokens in vocabulary: {0}".format(ntokens))
+
 
 if __name__ == "__main__":
     main()
