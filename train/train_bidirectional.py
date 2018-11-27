@@ -55,6 +55,8 @@ parser.add_argument('--threshold', type=int,
                          '(anything word with frequency than this threshold will not be included)')
 parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                     help='path to pickled dictionary')
+parser.add_argument('--case', action='store_true',
+                        help='use to convert all words to lowercase')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -69,7 +71,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data_train.Corpus(args.data, args.threshold)
+corpus = data_train.Corpus(args.data, args.threshold, args.case)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get

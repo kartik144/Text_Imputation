@@ -3,7 +3,7 @@ from nltk.corpus import stopwords
 
 
 stopWords = set(list(stopwords.words('english'))+['<eos>','<sos>', ',', ':',"\"", "?", "!","I", "A", "OK",
-                                                  "_", "mr","--", "-", ")", "\'", "("])
+                                                  "_", "mr","--", "-", ")", "\'", "(", "<unk>"])
 
 
 def get_missing_word(input, dictionary, N):
@@ -20,6 +20,7 @@ def get_missing_word(input, dictionary, N):
                 missing_word.sort(key=itemgetter(1))
 
     return missing_word
+
 
 def get_predictions(dictionary, missing_word):
     missing_word.reverse()  # Reverse list to arrange in descending order of scores
