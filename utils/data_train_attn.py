@@ -19,9 +19,10 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, threshold=1, sen_lim=50):
+    def __init__(self, path, threshold=1, sen_lim=50, case_=False):
         self.dictionary = Dictionary()
         self.vocab = {}
+        self.case = case_
         self.limit = sen_lim  # In this tokenization of file, the bptt would be self.limit
         self.max = self.preprocess(path)
         self.train = self.tokenize(os.path.join(path, 'train.txt'), threshold)
@@ -38,6 +39,10 @@ class Corpus(object):
         for fname in os.listdir(path):
             with open (os.path.join(path, fname)) as f:
                 for line in f:
+
+                    if self.case:
+                        line = line.lower()
+
                     words = ['<sos>'] + line.split() + ['<eos>']
 
                     if len(words) > self.limit:
@@ -76,6 +81,10 @@ class Corpus(object):
         # Add to dictionary
         with open(path, 'r', encoding="utf8") as f:
             for line in f:
+
+                if self.case:
+                    line = line.lower()
+
                 words = ['<sos>'] + line.split() + ['<eos>']
 
                 if len(words) > self.limit:
@@ -95,6 +104,10 @@ class Corpus(object):
             ids = torch.LongTensor(tokens)
             token = 0
             for line in f:
+
+                if self.case:
+                    line = line.lower()
+
                 flag=0
                 words = ['<sos>'] + line.split() + ['<eos>']
 
@@ -115,7 +128,8 @@ class Corpus(object):
                 unk += flag
                 total += 1
 
-            print("Sentences taken in the dataset: {}/{}\t[{:.2f}%]".format(total - sen, total, (total - sen)*100/total))
+            print("Sentences taken in the dataset: {}/{}\t[{:.2f}%]".format(total - sen, total,
+                                                                            (total - sen)*100/total))
 
             return ids
 

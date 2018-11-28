@@ -3,7 +3,8 @@ import torch
 import pickle
 from utils import msr_util
 from utils import data_test
-
+from utils.data_train import Dictionary
+from utils.data_train_attn import Dictionary
 
 parser = argparse.ArgumentParser(description='PyTorch Sentence Completion Model')
 
@@ -45,14 +46,24 @@ with open(args.model_bi, 'rb') as f:
     model = torch.load(f, map_location=device)
 model.eval()
 
+with open(args.model_attn, 'rb') as f:
+    model_attn = torch.load(f, map_location=device)
+model_attn.eval()
+
 dictionary, threshold = pickle.load(open(args.dict, "rb"))
-# dict_attn, threshold_attn = pickle.load(open(args.dict_attn, "rb"))
+dict_attn, threshold_attn = pickle.load(open(args.dict_attn, "rb"))
+
 ntokens = len(dictionary)
+ntokens_attn = len(dict_attn)
 
 data = msr_util.get_data(args.file, args.ans)
 counter = msr_util.AccuracyCounter()
+counter_attn = msr_util.AccuracyCounter()
 
-for s in data:
+dev_data = data[:int(len(data)/2)]
+test_data = data[int(len(data)/2):]
+
+for s in test_data:
     try:
         sentence = s['sentence']
         options = s['options']
@@ -70,14 +81,26 @@ for s in data:
         outputs = model.text_imputation(input_left, input_right, hidden_left, hidden_right)
         output_flat = outputs.view(-1, ntokens)[-1]
 
+        l, r = data_test.tokenize_input(sentence, dict_attn, args.sen_length)
+        hidden_left = model_attn.init_hidden(1)
+        hidden_right = model_attn.init_hidden(1)
+        input_left = torch.LongTensor(l).view(-1, 1)
+        input_right = torch.LongTensor(r).view(-1, 1)
+        output, attn_weights = model_attn.text_imputation(input_left, input_right, hidden_left, hidden_right)
+        output_flat_attn = output.view(-1, ntokens_attn)[-1]
+
         scores = msr_util.get_scores(output_flat, options, dictionary)
+        scores_attn = msr_util.get_scores(output_flat_attn, options, dict_attn)
         # print(scores)
         if scores[0][0] == s['answer']:
             counter.correct_()
+            counter_attn.correct_()
         else:
             counter.incorrect()
-
-        counter.display_results()
+            counter_attn.incorrect()
 
     except Exception as e:
         print(e)
+
+counter.display_results()
+counter_attn.display_results()

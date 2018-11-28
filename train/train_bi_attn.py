@@ -59,6 +59,8 @@ parser.add_argument('--sen_length', type=int,
                          '(to restrict unnecessary long sentences)')
 parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                     help='path to pickled dictionary')
+parser.add_argument('--case', action='store_true',
+                        help='use to convert all words to lowercase')
 args = parser.parse_args()
 
 args.bptt = args.sen_length
@@ -75,7 +77,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 # Load data
 ###############################################################################
 
-corpus = data_train_attn.Corpus(args.data, args.threshold, args.sen_length)
+corpus = data_train_attn.Corpus(args.data, args.threshold, args.sen_length, args.case)
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
