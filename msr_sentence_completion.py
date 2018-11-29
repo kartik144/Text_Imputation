@@ -63,7 +63,7 @@ counter_attn = msr_util.AccuracyCounter()
 dev_data = data[:int(len(data)/2)]
 test_data = data[int(len(data)/2):]
 
-for s in test_data:
+for s in data:
     try:
         sentence = s['sentence']
         options = s['options']
@@ -91,14 +91,16 @@ for s in test_data:
 
         scores = msr_util.get_scores(output_flat, options, dictionary)
         scores_attn = msr_util.get_scores(output_flat_attn, options, dict_attn)
-        # print(scores)
+
         if scores[0][0] == s['answer']:
             counter.correct_()
-            counter_attn.correct_()
         else:
             counter.incorrect()
-            counter_attn.incorrect()
 
+        if scores_attn[0][0] == s['answer']:
+            counter_attn.correct_()
+        else:
+            counter_attn.incorrect()
     except Exception as e:
         print(e)
 
