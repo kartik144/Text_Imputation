@@ -5,6 +5,9 @@ from utils import msr_util
 from utils import data_test
 from utils.data_train import Dictionary
 from utils.data_train_attn import Dictionary
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 parser = argparse.ArgumentParser(description='PyTorch Sentence Completion Model')
 
@@ -63,7 +66,7 @@ counter_attn = msr_util.AccuracyCounter()
 dev_data = data[:int(len(data)/2)]
 test_data = data[int(len(data)/2):]
 
-for s in data:
+for s in dev_data:
     try:
         sentence = s['sentence']
         options = s['options']
@@ -101,6 +104,19 @@ for s in data:
             counter_attn.correct_()
         else:
             counter_attn.incorrect()
+            print(scores_attn)
+            print(s['answer'])
+            fig, ax = plt.subplots()
+            sentence = sentence.replace("___", "")
+            im = ax.matshow(
+                attn_weights.view(attn_weights.size(0), -1)[:len(sentence.split()) + 2].t().detach().numpy())
+
+            ax.set_xticks(np.arange(len(sentence.split()) + 2))
+            ax.set_xticklabels([x for x in ["<sos>"] + sentence.split() + ["eos"]])
+
+            fig.colorbar(im)
+            plt.xticks(rotation="45")
+            plt.show()
     except Exception as e:
         print(e)
 

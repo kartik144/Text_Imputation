@@ -66,7 +66,7 @@ dict_attn, threshold_attn = pickle.load(open(args.dict_attn, "rb"))
 ntokens = len(dictionary)
 
 
-def complete_sentence(sentence):
+def complete_sentence(sentence, index):
     left_ids, right_ids = data_test.tokenize_input(sentence, dictionary)
     hidden_left = model_left.init_hidden(1)
     hidden_right = model_right.init_hidden(1)
@@ -85,8 +85,8 @@ def complete_sentence(sentence):
     missing_word_left = process.get_missing_word(output_flat_left, dictionary, args.N)
     missing_word_right = process.get_missing_word(output_flat_right, dictionary, args.N)
 
-    print("Candidate words (bidirectional):\t\t", end=" ")
-    process.print_predictions(dictionary, missing_word)
+    # print("Candidate words (bidirectional):\t\t", end=" ")
+    # process.print_predictions(dictionary, missing_word)
 
     print("Candidate words (unidirectional-left):\t", end=" ")
     process.print_predictions(dictionary, missing_word_left)
@@ -128,7 +128,12 @@ def complete_sentence(sentence):
 
     fig.colorbar(im)
     plt.xticks(rotation="45")
-    plt.show()
+
+    if index != 0:
+        plt.savefig('Attention_images/{0}.png'.format(index))
+        plt.close()
+    else:
+        plt.show()
 
     print()
 
@@ -138,7 +143,7 @@ if args.file == '#stdin#':
     sentence = input("Enter sentence (Enter $TOP to stop)\n")
     while sentence != "$TOP":
         try:
-            complete_sentence(sentence)
+            complete_sentence(sentence, 0)
         except Exception as e:
             print(e)
 
@@ -147,9 +152,11 @@ if args.file == '#stdin#':
 else:
 
     with open(args.file, "r") as f:
+        index = 0
         for line in f:
-            print(line, end="")
+            index += 1
+            print(str(index)+". "+line, end="")
             try:
-                complete_sentence(line)
+                complete_sentence(line, index)
             except Exception as e:
                 print(e)

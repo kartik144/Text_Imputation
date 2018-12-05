@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(".."))
 from utils import data_train_attn
 from model import model_bi_attention
 
-parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
+parser = argparse.ArgumentParser(description='bi-LSTM Attention based text imputation model')
 parser.add_argument('--data', type=str, default=os.path.abspath(os.path.join(os.pardir,'data/penn/')),
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',

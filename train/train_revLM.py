@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(".."))
 from utils import data_train
 from model import model
 
-parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
+parser = argparse.ArgumentParser(description='LSTM Reverse Language Model')
 parser.add_argument('--data', type=str, default='../data/penn',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
