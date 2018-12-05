@@ -1,7 +1,7 @@
 # Text-Imputation
 ## Overview of the project
 A machine learning based computational model for automatic sentence completion implemented in PyTorch. It is based on the concept of language models, and uses both past and future context to predict the word missing from the sentence at a fixed position.
-(Original code forked from [word language model](https://github.com/pytorch/examples/tree/master/word_language_model) in [pytorch/examples](https://github.com/pytorch/examples))
+(Original code forked from [PyTorch word level language modeling example](https://github.com/pytorch/examples/tree/master/word_language_model)).
 
 ## Model Architecture
 There are two types of models - a bidirectional LSTM based model and an attention augumneted bidirectional LSTM based model. Both utilize an RNN with LSTM cell to encode past and future words and then use a fully connected neural network to predict the missing word. In case of the model with attention, the fully-connected network also utilizes a weighted vector of all inputs words as input.
