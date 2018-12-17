@@ -61,6 +61,8 @@ parser.add_argument('--dict', type=str, default='../Dictionary/dict.pt',
                     help='path to pickled dictionary')
 parser.add_argument('--case', action='store_true',
                         help='use to convert all words to lowercase')
+parser.add_argument('--resume', action='store_true',
+                    help='resume training from an earlier checkpoint')
 args = parser.parse_args()
 
 args.bptt = args.sen_length
@@ -112,7 +114,16 @@ test_data = batchify(corpus.test, eval_batch_size, args.bptt)
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
-model = model_bi_attention.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.sen_length, device, args.dropout, args.tied).to(device)
+
+if (args.resume == True):
+    with open(args.save, 'rb') as f:
+        model = torch.load(f)
+        # after load the rnn params are not a continuous chunk of memory
+        # this makes them a continuous chunk, and will speed up forward pass
+        model.rnn_left.flatten_parameters()
+        model.rnn_right.flatten_parameters()
+else:
+    model = model_bi_attention.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.sen_length, device, args.dropout, args.tied).to(device)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -238,6 +249,11 @@ best_val_loss = None
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
+    if args.resume == True:
+        val_loss = evaluate(val_data)
+        best_val_loss = val_loss
+        print('| Resuming Training | valid loss {:5.2f} | valid ppl {:8.2f}'.format(val_loss, math.exp(val_loss)))
+
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()

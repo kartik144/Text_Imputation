@@ -249,6 +249,7 @@ try:
         val_loss = evaluate(val_data)
         best_val_loss = val_loss
         print('| Resuming Training | valid loss {:5.2f} | valid ppl {:8.2f}'.format(val_loss, math.exp(val_loss)))
+
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
