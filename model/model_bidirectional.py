@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 
+
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
@@ -30,15 +31,10 @@ class RNNModel(nn.Module):
         # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
         # https://arxiv.org/abs/1611.01462
 
-        ##############################################################################################################
-        ################ Tying of weights not possible in bidirectional RNNs in case of concatenation ################
-        ##############################################################################################################
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder.weight = self.encoder.weight
-        ##############################################################################################################
-        ##############################################################################################################
 
 
         self.init_weights()
@@ -66,20 +62,11 @@ class RNNModel(nn.Module):
 
         output_right = output_right.flip(0)
 
-        # output_left = self.drop(output_left)
-        # output_right = self.drop(output_right)
-
         output = self.drop(torch.cat((output_left, output_right), -1))
         output = self.tanh(self.transformer(output))
 
-        # output_left = self.drop(output_left)
-        # output_right = self.drop(output_right)
-
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        # decoded_left = self.decoder(output_left.view(output_left.size(0)*output_left.size(1), output_left.size(2)))
-        # decoded_right = self.decoder(output_right.view(output_right.size(0)*output_right.size(1), output_right.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)) #, decoded_left.view(output_left.size(0), output_left.size(1), decoded_left.size(1)), decoded_right.view(output_right.size(0), output_right.size(1), decoded_right.size(1))
-
+        return decoded.view(output.size(0), output.size(1), decoded.size(1))
 
     def text_imputation(self, data_left, data_right, hidden_left, hidden_right):
 
@@ -101,7 +88,6 @@ class RNNModel(nn.Module):
         decoded = self.decoder(output)
 
         return decoded
-
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())
