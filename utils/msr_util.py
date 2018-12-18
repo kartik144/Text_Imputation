@@ -51,6 +51,30 @@ def get_scores(input, options, dictionary):
     return scores
 
 
+def get_scores_ensemble(inputs, options, dictionaries):
+    Words=[]
+    for index,i in enumerate(inputs):
+        words = {}
+        for j in range(0, i.size(0)):
+            words[dictionaries[index].idx2word[j]] = i[j].data
+        Words.append(words)
+
+    scores = []
+    for w in options:
+        scores.append((w,0))
+
+    for words in Words:
+        for index,item in enumerate(scores):
+            a,b = item
+            b += words[a]
+            scores[index] = (a,b)
+
+    scores.sort(key=itemgetter(1))
+    scores.reverse()
+
+    return scores
+
+
 def main():
     path = '../data/msr_test/test.txt'
     ans = '../data/msr_test/test_ans.txt'
