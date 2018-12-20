@@ -1,4 +1,5 @@
-# Text-Imputation
+# Text Imputation using Recurrent Neural Networks
+This repository contains the code for my undergraduate thesis titled - **Text Imputation using Recurrent Neural Networks**. This project was done at Media and Interactive Computing Lab, Nanyang Technological University, Singapore under the supervisiion of [Dr. Chng Eng Siong](http://www.ntu.edu.sg/home/aseschng/), Associate Professor, NTU and [Mr. Khassanov Yerbolat](https://blogs.ntu.edu.sg/rr-ntucorplab/dacs/dacs-staff/yerbolat-khassanov/), PhD student, NTU. 
 ## Overview of the project
 A machine learning based computational model for automatic sentence completion implemented in PyTorch. It is based on the concept of language models, and uses both past and future context to predict the word missing from the sentence at a fixed position.
 (Original code forked from [PyTorch word level language modeling example](https://github.com/pytorch/examples/tree/master/word_language_model)).
@@ -34,10 +35,11 @@ general arguments:
   --threshold N      specify threshold such that words with frequency less 
                      than the threshold will be discarded
 
-arguments pecific to train_bidirectional.py  
+arguments specific to train_bidirectional.py  
   --dict DICT        path to file where the dictionary would be saved
+  --resume           to resume training from the last checkpoint
 
-arguments pecific to train_bidirectional.py  
+arguments specific to train_bi_attention.py  
   --dict DICT        path to file where the dictionary would be saved
   --sen_length N     threshold to eliminate unneccary long sentences.
 
